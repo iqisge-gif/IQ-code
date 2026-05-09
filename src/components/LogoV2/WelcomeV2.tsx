@@ -77,28 +77,28 @@ export function WelcomeV2() {
     }
     let t12;
     if ($[14] === Symbol.for("react.memo_cache_sentinel")) {
-      t12 = <Text>{"      "}<Text color="clawd_body"> █████████ </Text>{"                         \u2592\u2592\u2591\u2591\u2592\u2592      \u2592 \u2592\u2592"}</Text>;
+      t12 = <Text>{"        "}<Text color="clawd_body">▗▄████▙▖</Text></Text>;
       $[14] = t12;
     } else {
       t12 = $[14];
     }
     let t13;
     if ($[15] === Symbol.for("react.memo_cache_sentinel")) {
-      t13 = <Text>{"      "}<Text color="clawd_body" backgroundColor="clawd_background">██▄█████▄██</Text>{"                           \u2592\u2592         \u2592\u2592 "}</Text>;
+      t13 = <Text>{"        "}<Text color="clawd_body">▐██◔  ▜██▌</Text></Text>;
       $[15] = t13;
     } else {
       t13 = $[15];
     }
     let t14;
     if ($[16] === Symbol.for("react.memo_cache_sentinel")) {
-      t14 = <Text>{"      "}<Text color="clawd_body"> █████████ </Text>{"                          \u2591          \u2592   "}</Text>;
+      t14 = <Text>{"        "}<Text color="clawd_body">▝████▙▄▟▛▘</Text></Text>;
       $[16] = t14;
     } else {
       t14 = $[16];
     }
     let t15;
     if ($[17] === Symbol.for("react.memo_cache_sentinel")) {
-      t15 = <Box width={WELCOME_V2_WIDTH}><Text>{t0}{t1}{t2}{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t12}{t13}{t14}<Text>{"\u2026\u2026\u2026\u2026\u2026\u2026\u2026"}<Text color="clawd_body">{"\u2588 \u2588   \u2588 \u2588"}</Text>{"\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2591\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2592\u2026\u2026\u2026\u2026"}</Text></Text></Box>;
+      t15 = <Box width={WELCOME_V2_WIDTH}><Text>{t0}{t1}{t2}{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t12}{t13}{t14}<Text>{"          "}<Text color="clawd_body">▝▀██▛▘</Text></Text></Text></Box>;
       $[17] = t15;
     } else {
       t15 = $[17];
@@ -161,35 +161,35 @@ export function WelcomeV2() {
   }
   let t12;
   if ($[30] === Symbol.for("react.memo_cache_sentinel")) {
-    t12 = <Text color="clawd_body"> █████████ </Text>;
+    t12 = <Text>{"        "}<Text color="clawd_body">▗▄████▙▖</Text></Text>;
     $[30] = t12;
   } else {
     t12 = $[30];
   }
   let t13;
   if ($[31] === Symbol.for("react.memo_cache_sentinel")) {
-    t13 = <Text>{"      "}{t12}{"                                       "}<Text dimColor={true}>*</Text><Text> </Text></Text>;
+    t13 = <Text>{"        "}<Text color="clawd_body">▐██◔  ▜██▌</Text></Text>;
     $[31] = t13;
   } else {
     t13 = $[31];
   }
   let t14;
   if ($[32] === Symbol.for("react.memo_cache_sentinel")) {
-    t14 = <Text>{"      "}<Text color="clawd_body">██▄█████▄██</Text><Text>{"                        "}</Text><Text bold={true}>*</Text><Text>{"                "}</Text></Text>;
+    t14 = <Text>{"        "}<Text color="clawd_body">▝████▙▄▟▛▘</Text></Text>;
     $[32] = t14;
   } else {
     t14 = $[32];
   }
   let t15;
   if ($[33] === Symbol.for("react.memo_cache_sentinel")) {
-    t15 = <Text>{"      "}<Text color="clawd_body"> █████████ </Text>{"     *                                   "}</Text>;
+    t15 = <Text>{"          "}<Text color="clawd_body">▝▀██▛▘</Text></Text>;
     $[33] = t15;
   } else {
     t15 = $[33];
   }
   let t16;
   if ($[34] === Symbol.for("react.memo_cache_sentinel")) {
-    t16 = <Box width={WELCOME_V2_WIDTH}><Text>{t0}{t1}{t2}{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t13}{t14}{t15}<Text>{"\u2026\u2026\u2026\u2026\u2026\u2026\u2026"}<Text color="clawd_body">{"\u2588 \u2588   \u2588 \u2588"}</Text>{"\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026"}</Text></Text></Box>;
+    t16 = <Box width={WELCOME_V2_WIDTH}><Text>{t0}{t1}{t2}{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t13}{t14}{t15}</Text></Box>;
     $[34] = t16;
   } else {
     t16 = $[34];
@@ -311,7 +311,7 @@ function AppleTerminalWelcomeV2(t0) {
     }
     let t19;
     if ($[20] !== t3) {
-      t19 = <Box width={WELCOME_V2_WIDTH}><Text>{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t12}{t13}{t14}{t15}{t16}{t17}{t18}</Text></Box>;
+      t19 = <Box width={WELCOME_V2_WIDTH}><Text>{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t12}{t13}{t14}{t15}{t16}{t17}{t18}<Text>{"          "}<Text color="clawd_body">▝▀██▛▘</Text></Text></Text></Box>;
       $[20] = t3;
       $[21] = t19;
     } else {
@@ -401,28 +401,28 @@ function AppleTerminalWelcomeV2(t0) {
   }
   let t16;
   if ($[39] === Symbol.for("react.memo_cache_sentinel")) {
-    t16 = <Text>{"        "}<Text color="clawd_body">▗</Text><Text color="clawd_background" backgroundColor="clawd_body">{" "}▗{"     "}▖{" "}</Text><Text color="clawd_body">▖</Text><Text>{"                       "}</Text><Text bold={true}>*</Text><Text>{"                "}</Text></Text>;
+    t16 = <Text>{"        "}<Text color="clawd_body">▗▄████▙▖</Text><Text>{"                       "}</Text><Text bold={true}>*</Text><Text>{"                "}</Text></Text>;
     $[39] = t16;
   } else {
     t16 = $[39];
   }
   let t17;
   if ($[40] === Symbol.for("react.memo_cache_sentinel")) {
-    t17 = <Text>{"        "}<Text backgroundColor="clawd_body">{" ".repeat(9)}</Text>{"      *                                   "}</Text>;
+    t17 = <Text>{"        "}<Text color="clawd_body">▐██◔  ▜██▌</Text>{"      *                                   "}</Text>;
     $[40] = t17;
   } else {
     t17 = $[40];
   }
   let t18;
   if ($[41] === Symbol.for("react.memo_cache_sentinel")) {
-    t18 = <Text>{"\u2026\u2026\u2026\u2026\u2026\u2026\u2026"}<Text backgroundColor="clawd_body"> </Text><Text> </Text><Text backgroundColor="clawd_body"> </Text><Text>{"   "}</Text><Text backgroundColor="clawd_body"> </Text><Text> </Text><Text backgroundColor="clawd_body"> </Text>{"\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026"}</Text>;
+    t18 = <Text>{"        "}<Text color="clawd_body">▝████▙▄▟▛▘</Text>{"                                "}</Text>;
     $[41] = t18;
   } else {
     t18 = $[41];
   }
   let t19;
   if ($[42] !== t3) {
-    t19 = <Box width={WELCOME_V2_WIDTH}><Text>{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t12}{t13}{t14}{t15}{t16}{t17}{t18}</Text></Box>;
+    t19 = <Box width={WELCOME_V2_WIDTH}><Text>{t3}{t4}{t5}{t6}{t7}{t8}{t9}{t10}{t11}{t12}{t13}{t14}{t15}{t16}{t17}{t18}<Text>{"          "}<Text color="clawd_body">▝▀██▛▘</Text></Text></Text></Box>;
     $[42] = t3;
     $[43] = t19;
   } else {

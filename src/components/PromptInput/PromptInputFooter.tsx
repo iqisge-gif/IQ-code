@@ -1,6 +1,7 @@
 import { feature } from 'bun:bundle';
 import * as React from 'react';
-import { memo, type ReactNode, useMemo, useRef } from 'react';
+import axios from 'axios';
+import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { isBridgeEnabled } from '../../bridge/bridgeEnabled.js';
 import { getBridgeStatus } from '../../bridge/bridgeStatusUtil.js';
 import { useSetPromptOverlay } from '../../context/promptOverlayContext.js';
@@ -16,6 +17,7 @@ import type { Message } from '../../types/message.js';
 import type { PromptInputMode, VimMode } from '../../types/textInputTypes.js';
 import type { AutoUpdaterResult } from '../../utils/autoUpdater.js';
 import { isFullscreenEnvEnabled } from '../../utils/fullscreen.js';
+import { readCurrentCustomApiProvider } from '../../utils/customApiStorage.js';
 import { isUndercover } from '../../utils/undercover.js';
 import { CoordinatorTaskPanel, useCoordinatorTaskCount } from '../CoordinatorAgentStatus.js';
 import { getLastAssistantMessageId, StatusLine, statusLineShouldDisplay } from '../StatusLine.js';
@@ -23,6 +25,26 @@ import { Notifications } from './Notifications.js';
 import { PromptInputFooterLeftSide } from './PromptInputFooterLeftSide.js';
 import { PromptInputFooterSuggestions, type SuggestionItem } from './PromptInputFooterSuggestions.js';
 import { PromptInputHelpMenu } from './PromptInputHelpMenu.js';
+type DeepSeekBalanceInfo = {
+  currency?: string;
+  total_balance?: string;
+};
+
+type DeepSeekBalanceResponse = {
+  is_available?: boolean;
+  balance_infos?: DeepSeekBalanceInfo[];
+};
+
+function formatDeepSeekBalance(balance: DeepSeekBalanceResponse | null): string | null {
+  if (!balance?.is_available) return null;
+  const usd = balance.balance_infos?.find(item => item.currency === 'USD')?.total_balance;
+  const cny = balance.balance_infos?.find(item => item.currency === 'CNY')?.total_balance;
+  if (usd && cny) return `Balance: USD ${usd} · CNY ${cny}`;
+  if (usd) return `Balance: USD ${usd}`;
+  if (cny) return `Balance: CNY ${cny}`;
+  return null;
+}
+
 type Props = {
   apiKeyStatus: VerificationStatus;
   debug: boolean;
@@ -99,6 +121,7 @@ function PromptInputFooter({
     columns,
     rows
   } = useTerminalSize();
+  const [deepSeekBalance, setDeepSeekBalance] = useState<DeepSeekBalanceResponse | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const lastAssistantMessageId = useMemo(() => getLastAssistantMessageId(messages), [messages]);
@@ -120,6 +143,25 @@ function PromptInputFooter({
 
   // Hide `? for shortcuts` if the user has a custom status line, or during ctrl-r
   const suppressHint = suppressHintFromProps || statusLineShouldDisplay(settings) || isSearching;
+  const balanceLine = useMemo(() => formatDeepSeekBalance(deepSeekBalance), [deepSeekBalance]);
+  useEffect(() => {
+    const provider = readCurrentCustomApiProvider();
+    if (provider?.provider !== 'deepseek' || !provider.baseURL || !provider.apiKey) {
+      setDeepSeekBalance(null);
+      return;
+    }
+    const url = `${provider.baseURL.replace(/\/$/, '')}/user/balance`;
+    void axios.get<DeepSeekBalanceResponse>(url, {
+      headers: {
+        Authorization: `Bearer ${provider.apiKey}`,
+      },
+      timeout: 10000,
+    }).then(response => {
+      setDeepSeekBalance(response.data ?? null);
+    }).catch(() => {
+      setDeepSeekBalance(null);
+    });
+  }, []);
   // Fullscreen: portal data to FullscreenLayout — see promptOverlayContext.tsx
   const overlayData = useMemo(() => isFullscreen && suggestions.length ? {
     suggestions,
@@ -140,6 +182,7 @@ function PromptInputFooter({
         <Box flexDirection="column" flexShrink={isNarrow ? 0 : 1}>
           {mode === 'prompt' && !isShort && !exitMessage.show && !isPasting && statusLineShouldDisplay(settings) && <StatusLine messagesRef={messagesRef} lastAssistantMessageId={lastAssistantMessageId} vimMode={vimMode} />}
           <PromptInputFooterLeftSide exitMessage={exitMessage} vimMode={vimMode} mode={mode} toolPermissionContext={toolPermissionContext} suppressHint={suppressHint} isLoading={isLoading} tasksSelected={pillSelected} teamsSelected={teamsSelected} teammateFooterIndex={teammateFooterIndex} tmuxSelected={tmuxSelected} isPasting={isPasting} isSearching={isSearching} historyQuery={historyQuery} setHistoryQuery={setHistoryQuery} historyFailedMatch={historyFailedMatch} onOpenTasksDialog={onOpenTasksDialog} />
+          {balanceLine && <Text dimColor wrap="truncate">{balanceLine}</Text>}
         </Box>
         <Box flexShrink={1} gap={1}>
           {isFullscreen ? null : <Notifications apiKeyStatus={apiKeyStatus} autoUpdaterResult={autoUpdaterResult} debug={debug} isAutoUpdating={isAutoUpdating} verbose={verbose} messages={messages} onAutoUpdaterResult={onAutoUpdaterResult} onChangeIsUpdating={onChangeIsUpdating} ideSelection={ideSelection} mcpClients={mcpClients} isInputWrapped={isInputWrapped} isNarrow={isNarrow} />}

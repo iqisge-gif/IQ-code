@@ -1,6 +1,7 @@
 import { c as _c } from "react/compiler-runtime";
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import * as React from 'react';
+import axios from 'axios';
 import { Box, Text, color } from '../../ink.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import { stringWidth } from '../../ink/stringWidth.js';
@@ -21,6 +22,7 @@ import { OffscreenFreeze } from '../OffscreenFreeze.js';
 import { checkForReleaseNotesSync } from '../../utils/releaseNotes.js';
 import { getDumpPromptsPath } from 'src/services/api/dumpPrompts.js';
 import { isEnvTruthy } from 'src/utils/envUtils.js';
+import { readCurrentCustomApiProvider } from 'src/utils/customApiStorage.js';
 import { getStartupPerfLogPath, isDetailedProfilingEnabled } from 'src/utils/startupProfiler.js';
 import { EmergencyTip } from './EmergencyTip.js';
 import { VoiceModeNotice } from './VoiceModeNotice.js';
@@ -41,9 +43,30 @@ import { useShowOverageCreditUpsell, incrementOverageCreditUpsellSeenCount, crea
 import { plural } from '../../utils/stringUtils.js';
 import { useAppState } from '../../state/AppState.js';
 import { getEffortSuffix } from '../../utils/effort.js';
+import { readCurrentCustomApiProvider } from '../../utils/customApiStorage.js';
 import { useMainLoopModel } from '../../hooks/useMainLoopModel.js';
 import { renderModelSetting } from '../../utils/model/model.js';
 const LEFT_PANEL_MAX_WIDTH = 50;
+
+type DeepSeekBalanceInfo = {
+  currency?: string
+  total_balance?: string
+}
+
+type DeepSeekBalanceResponse = {
+  is_available?: boolean
+  balance_infos?: DeepSeekBalanceInfo[]
+}
+
+function formatDeepSeekBalance(balance: DeepSeekBalanceResponse | null): string | null {
+  if (!balance?.is_available) return 'Balance unavailable'
+  const usd = balance.balance_infos?.find(item => item.currency === 'USD')?.total_balance
+  const cny = balance.balance_infos?.find(item => item.currency === 'CNY')?.total_balance
+  if (usd && cny) return `Balance: USD ${usd} · CNY ${cny}`
+  if (usd) return `Balance: USD ${usd}`
+  if (cny) return `Balance: CNY ${cny}`
+  return 'Balance unavailable'
+}
 export function LogoV2() {
   const $ = _c(94);
   const activities = getRecentActivitySync();
@@ -85,6 +108,7 @@ export function LogoV2() {
     }
     return config.numStartups === 1 ? announcements[0] : announcements[Math.floor(Math.random() * announcements.length)];
   });
+  const [deepSeekBalance, setDeepSeekBalance] = useState<DeepSeekBalanceResponse | null>(null);
   const {
     hasReleaseNotes
   } = checkForReleaseNotesSync(config.lastReleaseNotesSeen);
@@ -156,6 +180,24 @@ export function LogoV2() {
     t8 = $[12];
   }
   useEffect(t7, t8);
+  useEffect(() => {
+    const provider = readCurrentCustomApiProvider();
+    if (provider?.provider !== 'deepseek' || !provider.baseURL || !provider.apiKey) {
+      setDeepSeekBalance(null);
+      return;
+    }
+    const url = `${provider.baseURL.replace(/\/$/, '')}/user/balance`;
+    void axios.get<DeepSeekBalanceResponse>(url, {
+      headers: {
+        Authorization: `Bearer ${provider.apiKey}`,
+      },
+      timeout: 10000,
+    }).then(response => {
+      setDeepSeekBalance(response.data ?? null);
+    }).catch(() => {
+      setDeepSeekBalance(null);
+    });
+  }, []);
   const model = useMainLoopModel();
   const fullModelDisplayName = renderModelSetting(model);
   const {
@@ -248,8 +290,8 @@ export function LogoV2() {
   }
   const layoutMode = getLayoutMode(columns);
   const userTheme = resolveThemeSetting(getGlobalConfig().theme);
-  const borderTitle = ` ${color("claude", userTheme)("IQ Code")} ${color("inactive", userTheme)(`v${version}`)} `;
-  const compactBorderTitle = color("claude", userTheme)(" IQ Code ");
+  const borderTitle = ` ${color("professionalBlue", userTheme)("IQ Code")} ${color("inactive", userTheme)(`v${version}`)} `;
+  const compactBorderTitle = color("professionalBlue", userTheme)(" IQ Code ");
   if (layoutMode === "compact") {
     let welcomeMessage = formatWelcomeMessage(username);
     if (stringWidth(welcomeMessage) > columns - 4) {
@@ -326,10 +368,11 @@ export function LogoV2() {
       t18 = $[42];
       t19 = $[43];
     }
-    return <><OffscreenFreeze><Box flexDirection="column" borderStyle="round" borderColor="claude" borderText={t11} paddingX={1} paddingY={1} alignItems="center" width={columns}><Text bold={true}>{welcomeMessage}</Text>{t12}{t13}<Text dimColor={true}>{billingType}</Text><Text dimColor={true}>{agentName ? `@${agentName} · ${truncatedCwd}` : truncatedCwd}</Text></Box></OffscreenFreeze>{t14}{t15}{t16}{t17}{t18}{t19}</>;
+    return <><OffscreenFreeze><Box flexDirection="column" borderStyle="round" borderColor="professionalBlue" borderText={t11} paddingX={1} paddingY={1} alignItems="center" width={columns}><Text bold={true}>{welcomeMessage}</Text>{t12}{t13}<Text dimColor={true}>{billingType}</Text><Text dimColor={true}>{agentName ? `@${agentName} · ${truncatedCwd}` : truncatedCwd}</Text></Box></OffscreenFreeze>{t14}{t15}{t16}{t17}{t18}{t19}</>;
   }
   const welcomeMessage_0 = formatWelcomeMessage(username);
   const modelLine = !process.env.IS_DEMO && config.oauthAccount?.organizationName ? `${modelDisplayName} · ${billingType} · ${config.oauthAccount.organizationName}` : `${modelDisplayName} · ${billingType}`;
+  const balanceLine = formatDeepSeekBalance(deepSeekBalance);
   const cwdAvailableWidth_0 = agentName ? LEFT_PANEL_MAX_WIDTH - 1 - stringWidth(agentName) - 3 : LEFT_PANEL_MAX_WIDTH;
   const truncatedCwd_0 = truncatePath(cwd, Math.max(cwdAvailableWidth_0, 10));
   const cwdLine = agentName ? `@${agentName} · ${truncatedCwd_0}` : truncatedCwd_0;
@@ -342,7 +385,7 @@ export function LogoV2() {
   const T1 = Box;
   const t11 = "column";
   const t12 = "round";
-  const t13 = "claude";
+  const t13 = "professionalBlue";
   let t14;
   if ($[44] !== borderTitle) {
     t14 = {
@@ -392,63 +435,64 @@ export function LogoV2() {
     t21 = $[52];
   }
   let t22;
-  if ($[53] !== t20 || $[54] !== t21) {
-    t22 = <Box flexDirection="column" alignItems="center">{t20}{t21}</Box>;
-    $[53] = t20;
-    $[54] = t21;
-    $[55] = t22;
+  if ($[53] !== balanceLine || $[54] !== t20 || $[55] !== t21) {
+    t22 = <Box flexDirection="column" alignItems="center">{t20}<Text dimColor={true}>{balanceLine ?? ' '}</Text>{t21}</Box>;
+    $[53] = balanceLine;
+    $[54] = t20;
+    $[55] = t21;
+    $[56] = t22;
   } else {
-    t22 = $[55];
+    t22 = $[56];
   }
   let t23;
-  if ($[56] !== leftWidth || $[57] !== t18 || $[58] !== t22) {
+  if ($[57] !== leftWidth || $[58] !== t18 || $[59] !== t22) {
     t23 = <Box flexDirection="column" width={leftWidth} justifyContent="space-between" alignItems="center" minHeight={9}>{t18}{t19}{t22}</Box>;
-    $[56] = leftWidth;
-    $[57] = t18;
-    $[58] = t22;
-    $[59] = t23;
+    $[57] = leftWidth;
+    $[58] = t18;
+    $[59] = t22;
+    $[60] = t23;
   } else {
-    t23 = $[59];
+    t23 = $[60];
   }
   let t24;
-  if ($[60] !== layoutMode) {
-    t24 = layoutMode === "horizontal" && <Box height="100%" borderStyle="single" borderColor="claude" borderDimColor={true} borderTop={false} borderBottom={false} borderLeft={false} />;
-    $[60] = layoutMode;
-    $[61] = t24;
+  if ($[61] !== layoutMode) {
+    t24 = layoutMode === "horizontal" && <Box height="100%" borderStyle="single" borderColor="professionalBlue" borderDimColor={true} borderTop={false} borderBottom={false} borderLeft={false} />;
+    $[61] = layoutMode;
+    $[62] = t24;
   } else {
-    t24 = $[61];
+    t24 = $[62];
   }
   const t25 = layoutMode === "horizontal" && <FeedColumn feeds={showOnboarding ? [createProjectOnboardingFeed(getSteps()), createRecentActivityFeed(activities)] : showGuestPassesUpsell ? [createRecentActivityFeed(activities), createGuestPassesFeed()] : showOverageCreditUpsell ? [createRecentActivityFeed(activities), createOverageCreditFeed()] : [createRecentActivityFeed(activities), createWhatsNewFeed(changelog)]} maxWidth={rightWidth} />;
   let t26;
-  if ($[62] !== T2 || $[63] !== t15 || $[64] !== t23 || $[65] !== t24 || $[66] !== t25) {
+  if ($[63] !== T2 || $[64] !== t15 || $[65] !== t23 || $[66] !== t24 || $[67] !== t25) {
     t26 = <T2 flexDirection={t15} paddingX={t16} gap={t17}>{t23}{t24}{t25}</T2>;
-    $[62] = T2;
-    $[63] = t15;
-    $[64] = t23;
-    $[65] = t24;
-    $[66] = t25;
-    $[67] = t26;
+    $[63] = T2;
+    $[64] = t15;
+    $[65] = t23;
+    $[66] = t24;
+    $[67] = t25;
+    $[68] = t26;
   } else {
-    t26 = $[67];
+    t26 = $[68];
   }
   let t27;
-  if ($[68] !== T1 || $[69] !== t14 || $[70] !== t26) {
+  if ($[69] !== T1 || $[70] !== t14 || $[71] !== t26) {
     t27 = <T1 flexDirection={t11} borderStyle={t12} borderColor={t13} borderText={t14}>{t26}</T1>;
-    $[68] = T1;
-    $[69] = t14;
-    $[70] = t26;
-    $[71] = t27;
+    $[69] = T1;
+    $[70] = t14;
+    $[71] = t26;
+    $[72] = t27;
   } else {
-    t27 = $[71];
+    t27 = $[72];
   }
   let t28;
-  if ($[72] !== T0 || $[73] !== t27) {
+  if ($[73] !== T0 || $[74] !== t27) {
     t28 = <T0>{t27}</T0>;
-    $[72] = T0;
-    $[73] = t27;
-    $[74] = t28;
+    $[73] = T0;
+    $[74] = t27;
+    $[75] = t28;
   } else {
-    t28 = $[74];
+    t28 = $[75];
   }
   let t29;
   let t30;
@@ -456,72 +500,72 @@ export function LogoV2() {
   let t32;
   let t33;
   let t34;
-  if ($[75] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[76] === Symbol.for("react.memo_cache_sentinel")) {
     t29 = <VoiceModeNotice />;
     t30 = <KirakiraNotice />;
     t31 = ChannelsNoticeModule && <ChannelsNoticeModule.ChannelsNotice />;
     t32 = isDebugMode() && <Box paddingLeft={2} flexDirection="column"><Text color="warning">Debug mode enabled</Text><Text dimColor={true}>Logging to: {isDebugToStdErr() ? "stderr" : getDebugLogPath()}</Text></Box>;
     t33 = <EmergencyTip />;
     t34 = process.env.CLAUDE_CODE_TMUX_SESSION && <Box paddingLeft={2} flexDirection="column"><Text dimColor={true}>tmux session: {process.env.CLAUDE_CODE_TMUX_SESSION}</Text><Text dimColor={true}>{process.env.CLAUDE_CODE_TMUX_PREFIX_CONFLICTS ? `Detach: ${process.env.CLAUDE_CODE_TMUX_PREFIX} ${process.env.CLAUDE_CODE_TMUX_PREFIX} d (press prefix twice - Claude uses ${process.env.CLAUDE_CODE_TMUX_PREFIX})` : `Detach: ${process.env.CLAUDE_CODE_TMUX_PREFIX} d`}</Text></Box>;
-    $[75] = t29;
-    $[76] = t30;
-    $[77] = t31;
-    $[78] = t32;
-    $[79] = t33;
-    $[80] = t34;
+    $[76] = t29;
+    $[77] = t30;
+    $[78] = t31;
+    $[79] = t32;
+    $[80] = t33;
+    $[81] = t34;
   } else {
-    t29 = $[75];
-    t30 = $[76];
-    t31 = $[77];
-    t32 = $[78];
-    t33 = $[79];
-    t34 = $[80];
+    t29 = $[76];
+    t30 = $[77];
+    t31 = $[78];
+    t32 = $[79];
+    t33 = $[80];
+    t34 = $[81];
   }
   let t35;
-  if ($[81] !== announcement || $[82] !== config) {
+  if ($[82] !== announcement || $[83] !== config) {
     t35 = announcement && <Box paddingLeft={2} flexDirection="column">{!process.env.IS_DEMO && config.oauthAccount?.organizationName && <Text dimColor={true}>Message from {config.oauthAccount.organizationName}:</Text>}<Text>{announcement}</Text></Box>;
-    $[81] = announcement;
-    $[82] = config;
-    $[83] = t35;
+    $[82] = announcement;
+    $[83] = config;
+    $[84] = t35;
   } else {
-    t35 = $[83];
+    t35 = $[84];
   }
   let t36;
-  if ($[84] !== showSandboxStatus) {
+  if ($[85] !== showSandboxStatus) {
     t36 = showSandboxStatus && <Box paddingLeft={2} flexDirection="column"><Text color="warning">Your bash commands will be sandboxed. Disable with /sandbox.</Text></Box>;
-    $[84] = showSandboxStatus;
-    $[85] = t36;
+    $[85] = showSandboxStatus;
+    $[86] = t36;
   } else {
-    t36 = $[85];
+    t36 = $[86];
   }
   let t37;
   let t38;
   let t39;
   let t40;
-  if ($[86] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[87] === Symbol.for("react.memo_cache_sentinel")) {
     t37 = false && !process.env.DEMO_VERSION && <Box paddingLeft={2} flexDirection="column"><Text dimColor={true}>Use /issue to report model behavior issues</Text></Box>;
     t38 = false && !process.env.DEMO_VERSION && <Box paddingLeft={2} flexDirection="column"><Text color="warning">[ANT-ONLY] Logs:</Text><Text dimColor={true}>API calls: {getDisplayPath(getDumpPromptsPath())}</Text><Text dimColor={true}>Debug logs: {getDisplayPath(getDebugLogPath())}</Text>{isDetailedProfilingEnabled() && <Text dimColor={true}>Startup Perf: {getDisplayPath(getStartupPerfLogPath())}</Text>}</Box>;
     t39 = false && <GateOverridesWarning />;
     t40 = false && <ExperimentEnrollmentNotice />;
-    $[86] = t37;
-    $[87] = t38;
-    $[88] = t39;
-    $[89] = t40;
+    $[87] = t37;
+    $[88] = t38;
+    $[89] = t39;
+    $[90] = t40;
   } else {
-    t37 = $[86];
-    t38 = $[87];
-    t39 = $[88];
-    t40 = $[89];
+    t37 = $[87];
+    t38 = $[88];
+    t39 = $[89];
+    t40 = $[90];
   }
   let t41;
-  if ($[90] !== t28 || $[91] !== t35 || $[92] !== t36) {
+  if ($[91] !== t28 || $[92] !== t35 || $[93] !== t36) {
     t41 = <>{t28}{t29}{t30}{t31}{t32}{t33}{t34}{t35}{t36}{t37}{t38}{t39}{t40}</>;
-    $[90] = t28;
-    $[91] = t35;
-    $[92] = t36;
-    $[93] = t41;
+    $[91] = t28;
+    $[92] = t35;
+    $[93] = t36;
+    $[94] = t41;
   } else {
-    t41 = $[93];
+    t41 = $[94];
   }
   return t41;
 }

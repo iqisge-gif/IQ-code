@@ -131,7 +131,7 @@ export function ConsoleOAuthFlow({
     }
     if (preset === 'deepseek') {
       setCustomBaseURL('https://api.deepseek.com/v1');
-      setCustomModel(current => current || 'deepseek-chat');
+      setCustomModel(current => current || 'deepseek-v4-pro[1m]');
     }
     setOAuthStatus({
       state: 'custom_config',
@@ -591,7 +591,7 @@ function OAuthStatusMessage(t0) {
         const label = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'Enter the DeepSeek API base URL:' : isOpenAIProvider ? `Enter the ${currentOpenAICompatMode === 'responses' ? 'OpenAI Responses' : 'OpenAI Chat Completions'} compatible base URL:` : isGeminiProvider ? 'Enter the Gemini API base URL:' : 'Enter the Anthropic Messages compatible base URL:' : oauthStatus.step === 'apiKey' ? isDeepSeekPreset ? 'Input DeepSeek API Key:' : isOpenAIProvider ? 'Input OpenAI API Key:' : isGeminiProvider ? 'Input Gemini API Key:' : 'Input Anthropic API Key:' : isDeepSeekPreset ? 'Enter the DeepSeek model name:' : 'Enter the default model name:';
         const value = oauthStatus.step === 'baseURL' ? customBaseURL : oauthStatus.step === 'apiKey' ? customApiKey : customModel;
         const onChange = oauthStatus.step === 'baseURL' ? setCustomBaseURL : oauthStatus.step === 'apiKey' ? setCustomApiKey : setCustomModel;
-        const placeholder = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'https://api.deepseek.com/v1' : isOpenAIProvider ? 'http(s)://your-openai-compatible-endpoint.example.com/v1' : isGeminiProvider ? 'https://generativelanguage.googleapis.com/v1beta' : 'http(s)://your-anthropic-compatible-endpoint.example.com' : oauthStatus.step === 'apiKey' ? 'sk-...' : isDeepSeekPreset ? 'deepseek-chat' : isOpenAIProvider ? 'gpt-4o-mini' : isGeminiProvider ? 'gemini-2.5-pro' : 'claude-3-5-sonnet-latest';
+        const placeholder = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'https://api.deepseek.com/v1' : isOpenAIProvider ? 'http(s)://your-openai-compatible-endpoint.example.com/v1' : isGeminiProvider ? 'https://generativelanguage.googleapis.com/v1beta' : 'http(s)://your-anthropic-compatible-endpoint.example.com' : oauthStatus.step === 'apiKey' ? 'sk-...' : isDeepSeekPreset ? 'deepseek-v4-pro[1m]' : isOpenAIProvider ? 'gpt-4o-mini' : isGeminiProvider ? 'gemini-2.5-pro' : 'claude-3-5-sonnet-latest';
         const mask = oauthStatus.step === 'apiKey' ? '*' : undefined;
         return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>Configure compatible interfaces</Text><Text>{`Current selection: ${currentProviderLabel}`}</Text><Text>{label}</Text><Box flexDirection="row"><TextInput value={value} onChange={onChange} onSubmit={handleSubmitCustomConfig} onIsPastingChange={setIsCustomInputPasting} cursorOffset={cursorOffset} onChangeCursorOffset={setCursorOffset} columns={oauthStatus.step === 'baseURL' ? Math.max(20, textInputColumns - 12) : textInputColumns} focus={true} showCursor={true} placeholder={placeholder} mask={mask} dimColor={oauthStatus.step === 'model' && value.length === 0} />{oauthStatus.step === 'baseURL' ? <Text dimColor={true}>{pathSuffix}</Text> : null}</Box><Text dimColor={true}>{isCustomInputPasting ? 'Press Enter to save the current item and continue.' : 'Press Enter to save the current item and continue.'}</Text></Box>;
       }
