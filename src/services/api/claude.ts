@@ -1865,7 +1865,7 @@ async function* queryModel(
                 : undefined,
               fetch: globalThis.fetch,
             },
-            customApiConfig.model?.trim() || params.model,
+            normalizeModelStringForAPI(customApiConfig.model?.trim() || params.model),
             geminiRequest,
             signal,
           )

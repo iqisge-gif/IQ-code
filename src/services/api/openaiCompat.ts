@@ -7,6 +7,7 @@ import type {
   BetaToolUnion,
   BetaUsage,
 } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
+import { normalizeModelStringForAPI } from '../../utils/model/model.js'
 
 type AnyBlock = Record<string, unknown>
 
@@ -177,7 +178,7 @@ export function convertAnthropicRequestToOpenAI(input: {
   }
 }): OpenAIChatRequest {
   const configuredModel = process.env.ANTHROPIC_MODEL?.trim()
-  const targetModel = configuredModel || input.model
+  const targetModel = normalizeModelStringForAPI(configuredModel || input.model)
   const messages: OpenAIChatMessage[] = []
 
   if (input.system) {
