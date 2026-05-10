@@ -20,3 +20,28 @@ run
 
 
 bun dev run
+
+
+
+
+这里是termux区
+先安装termux bun 
+
+curl -fsSL "https://raw.githubusercontent.com/Happ1ness-dev/bun-termux/main/helper_scripts/bun-termux-manager" | bash -s install
+
+
+
+然后重启终端
+
+
+install
+
+
+bun install
+
+run
+
+bun run dev
+
+
+
