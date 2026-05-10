@@ -4,9 +4,11 @@
 install
 
 Linux and mac
+
 curl -fsSL https://bun.com/install | bash
 
 Windows
+
 powershell -c "irm bun.sh/install.ps1|iex"
 
 
