@@ -1,13 +1,13 @@
 # IQ-code
 你好这是一个code基于claudecode他可不是一般的code不是简单的套壳深度接入deepseek的code
 
-install
+#install
 
-Linux and mac
+#Linux and mac
 
 curl -fsSL https://bun.com/install | bash
 
-Windows
+#Windows
 
 powershell -c "irm bun.sh/install.ps1|iex"
 
@@ -16,7 +16,7 @@ powershell -c "irm bun.sh/install.ps1|iex"
 
 bun install
 
-run
+#run
 
 
 bun dev run
