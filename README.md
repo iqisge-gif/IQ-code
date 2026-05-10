@@ -12,7 +12,7 @@ curl -fsSL https://bun.com/install | bash
 powershell -c "irm bun.sh/install.ps1|iex"
 
 
-
+git clone https://github.com/iqisge-gif/IQ-code.git
 
 bun install
 
@@ -35,6 +35,9 @@ curl -fsSL "https://raw.githubusercontent.com/Happ1ness-dev/bun-termux/main/help
 
 
 install
+
+git clone https://github.com/iqisge-gif/IQ-code.git
+
 
 
 bun install
