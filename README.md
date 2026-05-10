@@ -34,7 +34,7 @@ curl -fsSL "https://raw.githubusercontent.com/Happ1ness-dev/bun-termux/main/help
 然后重启终端
 
 
-install
+#install
 
 git clone https://github.com/iqisge-gif/IQ-code.git
 
@@ -42,7 +42,7 @@ git clone https://github.com/iqisge-gif/IQ-code.git
 
 bun install
 
-run
+#run
 
 bun run dev
 
