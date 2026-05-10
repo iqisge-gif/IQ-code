@@ -17,6 +17,7 @@ export const EFFORT_LEVELS = [
   'medium',
   'high',
   'max',
+  'token节省最大智商',
 ] as const satisfies readonly EffortLevel[]
 
 export type EffortValue = EffortLevel | number
@@ -62,20 +63,14 @@ export function modelSupportsEffort(model: string): boolean {
   return getAPIProvider() === 'firstParty'
 }
 
-// @[MODEL LAUNCH]: Add the new model to the allowlist if it supports 'max' effort.
-// Per API docs, 'max' is Opus 4.6 only for public models — other models return an error.
+// Expose 'max' effort anywhere standard effort is available, unless a 3P
+// capability override explicitly disables it.
 export function modelSupportsMaxEffort(model: string): boolean {
   const supported3P = get3PModelCapabilityOverride(model, 'max_effort')
   if (supported3P !== undefined) {
     return supported3P
   }
-  if (model.toLowerCase().includes('opus-4-6')) {
-    return true
-  }
-  if (process.env.USER_TYPE === 'ant' && resolveAntModel(model)) {
-    return true
-  }
-  return false
+  return modelSupportsEffort(model)
 }
 
 export function isEffortLevel(value: string): value is EffortLevel {
@@ -113,7 +108,8 @@ export function toPersistableEffort(
     value === 'none' ||
     value === 'low' ||
     value === 'medium' ||
-    value === 'high'
+    value === 'high' ||
+    value === 'token节省最大智商'
   ) {
     return value
   }
@@ -178,7 +174,11 @@ export function resolveAppliedEffort(
   }
   const resolved =
     envOverride ?? appStateEffortValue ?? getDefaultEffortForModel(model)
-  // API rejects 'max' on non-Opus-4.6 models — downgrade to 'high'.
+  if (resolved === 'token节省最大智商') {
+    return 'max'
+  }
+  // If 'max' is selected for a model where max effort is not enabled, fall
+  // back to 'high'.
   if (resolved === 'max' && !modelSupportsMaxEffort(model)) {
     return 'high'
   }
@@ -198,16 +198,42 @@ export function getDisplayedEffortLevel(
   return convertEffortValueToLevel(resolved === 'none' ? 'low' : resolved)
 }
 
+export function isTokenSavingMaxIntelligenceRequested(
+  effortValue: EffortValue | undefined,
+): boolean {
+  const envOverride = getEffortEnvOverride()
+  const requested = envOverride === null ? undefined : envOverride ?? effortValue
+  return requested === 'token节省最大智商'
+}
+
+export function getNamedReasoningMode(
+  model: string,
+  effortValue: EffortValue | undefined,
+): string | null {
+  const provider =
+    readCurrentCustomApiProvider()?.provider ?? readCustomApiStorage().provider
+  if (
+    provider === 'deepseek' &&
+    isTokenSavingMaxIntelligenceRequested(effortValue)
+  ) {
+    return 'token节省最大智商'
+  }
+  return null
+}
+
 /**
  * Build the ` with {level} effort` suffix shown in Logo/Spinner.
  * Returns empty string if the user hasn't explicitly set an effort value.
  * Delegates to resolveAppliedEffort() so the displayed level matches what
- * the API actually receives (including max→high clamp for non-Opus models).
+ * the API actually receives (including any max→high clamp when max effort is
+ * unavailable for the current model).
  */
 export function getEffortSuffix(
   model: string,
   effortValue: EffortValue | undefined,
 ): string {
+  const namedMode = getNamedReasoningMode(model, effortValue)
+  if (namedMode) return ` with ${namedMode}`
   if (effortValue === undefined) return ''
   const resolved = resolveAppliedEffort(model, effortValue)
   if (resolved === undefined) return ''
@@ -252,7 +278,9 @@ export function getEffortLevelDescription(level: EffortLevel): string {
     case 'high':
       return 'Comprehensive implementation with extensive testing and documentation'
     case 'max':
-      return 'Maximum capability with deepest reasoning (Opus 4.6 only)'
+      return 'Maximum capability with deepest reasoning'
+    case 'token节省最大智商':
+      return '在 DeepSeek 上优先保持最大智商，同时尽量节省 token 的模式'
   }
 }
 
@@ -301,6 +329,12 @@ export function getOpusDefaultEffortConfig(): OpusDefaultEffortConfig {
 export function getDefaultEffortForModel(
   model: string,
 ): EffortValue | undefined {
+  const provider =
+    readCurrentCustomApiProvider()?.provider ?? readCustomApiStorage().provider
+  if (provider === 'deepseek') {
+    return 'max'
+  }
+
   if (process.env.USER_TYPE === 'ant') {
     const config = getAntModelOverrideConfig()
     const isDefaultModel =

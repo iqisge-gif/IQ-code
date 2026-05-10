@@ -3,7 +3,7 @@ import type { Command } from '../../commands.js'
 const provider = {
   type: 'local-jsx',
   name: 'provider',
-  description: 'View and manage compatible API providers',
+  description: '查看并管理兼容 API 提供方',
   argumentHint: '[info|use|add|rename|remove]',
   supportsNonInteractive: false,
   immediate: true,

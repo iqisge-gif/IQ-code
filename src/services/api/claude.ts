@@ -86,7 +86,10 @@ import {
   getModelMaxOutputTokens,
   getSonnet1mExpTreatmentEnabled,
 } from '../../utils/context.js'
-import { resolveAppliedEffort } from '../../utils/effort.js'
+import {
+  isTokenSavingMaxIntelligenceRequested,
+  resolveAppliedEffort,
+} from '../../utils/effort.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import { errorMessage } from '../../utils/errors.js'
 import { computeFingerprintFromMessages } from '../../utils/fingerprint.js'
@@ -1462,6 +1465,9 @@ async function* queryModel(
   }
 
   const effort = resolveAppliedEffort(options.model, options.effortValue)
+  const tokenSavingMaxIntelligence = isTokenSavingMaxIntelligenceRequested(
+    options.effortValue,
+  )
 
   if (feature('PROMPT_CACHE_BREAK_DETECTION')) {
     // Exclude defer_loading tools from the hash -- the API strips them from the
@@ -1923,6 +1929,9 @@ async function* queryModel(
             temperature: params.temperature,
             max_tokens: maxTokensForCompat,
             thinking: params.thinking,
+            effort,
+            compatProvider,
+            tokenSavingMaxIntelligence,
           })
           if (!openAIRequest.messages || openAIRequest.messages.length === 0) {
             throw new Error(

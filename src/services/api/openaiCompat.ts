@@ -7,6 +7,7 @@ import type {
   BetaToolUnion,
   BetaUsage,
 } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
+import type { EffortValue } from 'src/utils/effort.js'
 import { normalizeModelStringForAPI } from '../../utils/model/model.js'
 
 type AnyBlock = Record<string, unknown>
@@ -45,6 +46,12 @@ export type OpenAIChatRequest = {
   stream?: boolean
   enable_thinking?: boolean
   thinking_budget?: number
+  reasoning_effort?: 'high' | 'max'
+  extra_body?: {
+    thinking?: {
+      type: 'enabled' | 'disabled'
+    }
+  }
   temperature?: number
   tools?: Array<{
     type: 'function'
@@ -164,6 +171,127 @@ export function getToolDefinitions(tools?: BetaToolUnion[]): OpenAIChatRequest['
   return mapped.length > 0 ? mapped : undefined
 }
 
+function mapEffortToOpenAIThinkingBudget(
+  effort?: EffortValue,
+): number | undefined {
+  if (effort === 'none') return 0
+  if (effort === 'low') return 1024
+  if (effort === 'medium') return 4096
+  if (effort === 'high') return 8192
+  if (effort === 'max' || typeof effort === 'number') return 16384
+  return undefined
+}
+
+function mapEffortToDeepSeekReasoningEffort(
+  effort?: EffortValue,
+): 'high' | 'max' | undefined {
+  if (effort === 'none') return undefined
+  if (effort === 'max') return 'max'
+  if (typeof effort === 'number') return 'max'
+  return 'high'
+}
+
+function compressAssistantTextForTokenSaving(text: string): string {
+  const normalized = text
+    .replace(/\s+/g, ' ')
+    .replace(/([。！？；;.!?])\s+/g, '$1 ')
+    .trim()
+  if (normalized.length <= 240) {
+    return normalized
+  }
+
+  const sentences = normalized
+    .split(/(?<=[。！？；;.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean)
+
+  if (sentences.length <= 2) {
+    return `状态摘要：${normalized.slice(0, 240)}`
+  }
+
+  const summaryParts: string[] = []
+  const keyFacts = sentences.filter(sentence =>
+    /(错误|error|失败|fix|修复|原因|root cause|结论|因此|所以|需要|must|should|文件|file|路径|path|函数|function|类|class|参数|param|返回|return|步骤|step|plan|结果|result|输出|output)/i.test(
+      sentence,
+    ),
+  )
+
+  const decisions = sentences.filter(sentence =>
+    /(决定|decision|采用|use|改为|change|切换|switch|保留|preserve|删除|remove|跳过|skip|压缩|compress|优化|optimi[sz]e)/i.test(
+      sentence,
+    ),
+  )
+
+  const nextActions = sentences.filter(sentence =>
+    /(接下来|next|然后|will|将会|需要做|todo|后续|follow-up)/i.test(sentence),
+  )
+
+  if (keyFacts.length > 0) {
+    summaryParts.push(`关键事实：${keyFacts.slice(0, 3).join('；')}`)
+  }
+  if (decisions.length > 0) {
+    summaryParts.push(`关键决策：${decisions.slice(0, 2).join('；')}`)
+  }
+  if (nextActions.length > 0) {
+    summaryParts.push(`后续动作：${nextActions.slice(0, 2).join('；')}`)
+  }
+
+  if (summaryParts.length === 0) {
+    const anchors = [sentences[0]!, sentences[sentences.length - 1]!]
+    return `状态摘要：${[...new Set(anchors)].join(' ')}`.slice(0, 320)
+  }
+
+  return `状态摘要：${summaryParts.join(' | ')}`.slice(0, 420)
+}
+
+function compressUserTextForTokenSaving(text: string): string {
+  const normalized = text
+    .replace(/\s+/g, ' ')
+    .replace(/([。！？；;.!?])\s+/g, '$1 ')
+    .trim()
+  if (normalized.length <= 220) {
+    return normalized
+  }
+
+  const sentences = normalized
+    .split(/(?<=[。！？；;.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean)
+
+  const goals = sentences.filter(sentence =>
+    /(想要|需要|目标|goal|want|need|实现|完成|修复|添加|优化|开始|继续|分析|研究)/i.test(
+      sentence,
+    ),
+  )
+  const constraints = sentences.filter(sentence =>
+    /(不要|不能|必须|限制|约束|兼容|仅|只|保留|避免|without|must|should|require|constraint)/i.test(
+      sentence,
+    ),
+  )
+  const requests = sentences.filter(sentence =>
+    /(请|帮我|给我|用|改成|翻译|优化|实现|支持|写一个|开始|继续|look|check|fix|translate|implement)/i.test(
+      sentence,
+    ),
+  )
+
+  const summaryParts: string[] = []
+  if (goals.length > 0) {
+    summaryParts.push(`当前目标：${goals.slice(0, 2).join('；')}`)
+  }
+  if (constraints.length > 0) {
+    summaryParts.push(`约束条件：${constraints.slice(0, 2).join('；')}`)
+  }
+  if (requests.length > 0) {
+    summaryParts.push(`具体请求：${requests.slice(0, 2).join('；')}`)
+  }
+
+  if (summaryParts.length === 0) {
+    return `用户摘要：${sentences.slice(0, 2).join('；')}`.slice(0, 300)
+  }
+
+  return `用户摘要：${summaryParts.join(' | ')}`.slice(0, 380)
+}
+
 export function convertAnthropicRequestToOpenAI(input: {
   model: string
   system?: string | Array<{ type?: string; text?: string }>
@@ -176,10 +304,57 @@ export function convertAnthropicRequestToOpenAI(input: {
     type?: 'enabled' | 'disabled' | 'adaptive'
     budget_tokens?: number
   }
+  effort?: EffortValue
+  compatProvider?: 'openai' | 'deepseek'
+  tokenSavingMaxIntelligence?: boolean
 }): OpenAIChatRequest {
   const configuredModel = process.env.ANTHROPIC_MODEL?.trim()
   const targetModel = normalizeModelStringForAPI(configuredModel || input.model)
+  const isDeepSeekCompat = input.compatProvider === 'deepseek'
+  const hasToolHistory = input.messages.some(message => {
+    if (message.role !== 'assistant') return false
+    const blocks = Array.isArray(message.content)
+      ? (message.content as unknown as AnyBlock[])
+      : []
+    return blocks.some(block => block.type === 'tool_use')
+  })
+  const hasToolDefinitions = !!input.tools?.length
+  const toolChoiceLocked = input.tool_choice?.type === 'tool'
+  const tokenSavingMaxIntelligenceActive =
+    isDeepSeekCompat && input.tokenSavingMaxIntelligence
+  const shouldEscalateTokenSavingMode =
+    tokenSavingMaxIntelligenceActive &&
+    (hasToolHistory || hasToolDefinitions || toolChoiceLocked)
   const messages: OpenAIChatMessage[] = []
+  const latestUserMessageIndex = (() => {
+    for (let i = input.messages.length - 1; i >= 0; i--) {
+      if (input.messages[i]?.role === 'user') return i
+    }
+    return -1
+  })()
+  const pendingCompressedUserTexts: string[] = []
+  const pendingCompressedAssistantTexts: string[] = []
+  const flushCompressedBuffers = (): void => {
+    if (pendingCompressedUserTexts.length > 0) {
+      messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `用户合并摘要：${pendingCompressedUserTexts.join(' | ')}`.slice(0, 800),
+          },
+        ],
+      })
+      pendingCompressedUserTexts.length = 0
+    }
+    if (pendingCompressedAssistantTexts.length > 0) {
+      messages.push({
+        role: 'assistant',
+        content: `助手合并摘要：${pendingCompressedAssistantTexts.join(' | ')}`.slice(0, 1000),
+      })
+      pendingCompressedAssistantTexts.length = 0
+    }
+  }
 
   if (input.system) {
     const systemText = Array.isArray(input.system)
@@ -194,6 +369,7 @@ export function convertAnthropicRequestToOpenAI(input: {
 
       const toolResults = blocks.filter(block => block.type === 'tool_result')
       for (const result of toolResults) {
+        flushCompressedBuffers()
         const toolUseId =
           typeof result.tool_use_id === 'string' ? result.tool_use_id : undefined
         const content = result.content
@@ -207,7 +383,30 @@ export function convertAnthropicRequestToOpenAI(input: {
       const userContent = mapAnthropicUserBlocksToOpenAIContent(
         blocks.filter(block => block.type !== 'tool_result') as AnyBlock[],
       )
-      if (userContent.length > 0) messages.push({ role: 'user', content: userContent })
+      if (userContent.length > 0) {
+        const isLatestUserMessage = input.messages.indexOf(message) === latestUserMessageIndex
+        const shouldCompressUser =
+          tokenSavingMaxIntelligenceActive &&
+          !shouldEscalateTokenSavingMode &&
+          !isLatestUserMessage
+        if (shouldCompressUser) {
+          const compressedTexts = userContent
+            .filter(part => part.type === 'text')
+            .map(part => compressUserTextForTokenSaving(part.text))
+            .filter(Boolean)
+          if (compressedTexts.length > 0) {
+            pendingCompressedUserTexts.push(...compressedTexts)
+          }
+          const nonTextParts = userContent.filter(part => part.type !== 'text')
+          if (nonTextParts.length > 0) {
+            flushCompressedBuffers()
+            messages.push({ role: 'user', content: nonTextParts })
+          }
+        } else {
+          flushCompressedBuffers()
+          messages.push({ role: 'user', content: userContent })
+        }
+      }
       continue
     }
 
@@ -215,10 +414,14 @@ export function convertAnthropicRequestToOpenAI(input: {
       const blocks = Array.isArray(message.content)
         ? (message.content as unknown as AnyBlock[])
         : []
-      const text = blocks
+      const rawText = blocks
         .filter(block => block.type === 'text')
         .map(block => (typeof block.text === 'string' ? block.text : ''))
         .join('')
+      const text =
+        tokenSavingMaxIntelligenceActive && !shouldEscalateTokenSavingMode
+          ? compressAssistantTextForTokenSaving(rawText)
+          : rawText
       const reasoningContent = blocks
         .filter(block => block.type === 'thinking')
         .map(block => (typeof block.thinking === 'string' ? block.thinking : ''))
@@ -238,26 +441,102 @@ export function convertAnthropicRequestToOpenAI(input: {
           },
         }))
 
+      const shouldIncludeReasoningContent =
+        !isDeepSeekCompat ||
+        toolCalls.length > 0 ||
+        (!tokenSavingMaxIntelligenceActive && text.length > 0) ||
+        shouldEscalateTokenSavingMode
+
+      if (!text && toolCalls.length === 0 && !shouldIncludeReasoningContent) {
+        continue
+      }
+
+      const shouldCompressAssistant =
+        tokenSavingMaxIntelligenceActive &&
+        !shouldEscalateTokenSavingMode &&
+        toolCalls.length === 0 &&
+        !shouldIncludeReasoningContent
+
+      if (shouldCompressAssistant && text) {
+        pendingCompressedAssistantTexts.push(text)
+        continue
+      }
+
+      flushCompressedBuffers()
       messages.push({
         role: 'assistant',
         content: text || null,
-        ...(reasoningContent ? { reasoning_content: reasoningContent } : {}),
+        ...(shouldIncludeReasoningContent && reasoningContent
+          ? { reasoning_content: reasoningContent }
+          : {}),
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       })
     }
   }
 
+  flushCompressedBuffers()
+
+  const effortThinkingBudget = mapEffortToOpenAIThinkingBudget(input.effort)
+  const explicitThinkingBudget =
+    typeof effortThinkingBudget === 'number' && effortThinkingBudget > 0
+      ? Math.min(
+          input.max_tokens ? Math.max(1, input.max_tokens - 1) : effortThinkingBudget,
+          effortThinkingBudget,
+        )
+      : input.thinking?.type === 'enabled' &&
+          typeof input.thinking.budget_tokens === 'number'
+        ? input.thinking.budget_tokens
+        : undefined
+  const enableThinking =
+    effortThinkingBudget === 0
+      ? false
+      : effortThinkingBudget !== undefined
+        ? true
+        : input.thinking?.type === 'enabled' || input.thinking?.type === 'adaptive'
+  const deepSeekThinkingType =
+    input.thinking?.type === 'disabled' || effortThinkingBudget === 0
+      ? 'disabled'
+      : 'enabled'
+  const deepSeekReasoningEffort =
+    tokenSavingMaxIntelligenceActive && !shouldEscalateTokenSavingMode
+      ? 'high'
+      : mapEffortToDeepSeekReasoningEffort(input.effort)
+  const deepSeekMaxTokens =
+    tokenSavingMaxIntelligenceActive && !shouldEscalateTokenSavingMode
+      ? input.max_tokens !== undefined
+        ? Math.min(input.max_tokens, 8192)
+        : input.max_tokens
+      : input.max_tokens
+
   return {
     model: targetModel,
     messages,
-    enable_thinking:
-      input.thinking?.type === 'enabled' || input.thinking?.type === 'adaptive',
-    ...(input.thinking?.type === 'enabled' &&
-    typeof input.thinking.budget_tokens === 'number'
-      ? { thinking_budget: input.thinking.budget_tokens }
-      : {}),
-    temperature: input.temperature,
-    max_tokens: input.max_tokens,
+    ...(isDeepSeekCompat
+      ? {
+          ...(deepSeekReasoningEffort
+            ? { reasoning_effort: deepSeekReasoningEffort }
+            : {}),
+          extra_body: {
+            thinking: {
+              type: deepSeekThinkingType,
+            },
+          },
+          ...(deepSeekMaxTokens !== undefined
+            ? { max_tokens: deepSeekMaxTokens }
+            : {}),
+        }
+      : {
+          enable_thinking: enableThinking,
+          ...(explicitThinkingBudget !== undefined
+            ? { thinking_budget: explicitThinkingBudget }
+            : {}),
+          ...(input.temperature !== undefined
+            ? { temperature: input.temperature }
+            : {}),
+          ...(input.max_tokens !== undefined
+            ? { max_tokens: input.max_tokens }
+            : {}),
+        }),
     ...(getToolDefinitions(input.tools)
       ? { tools: getToolDefinitions(input.tools) }
       : {}),

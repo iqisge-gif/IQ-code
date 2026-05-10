@@ -321,11 +321,11 @@ export function ConsoleOAuthFlow({
     void sendNotification({
       message: safeOauthStatus.provider === 'openai' || safeOauthStatus.provider === 'deepseek'
         ? isDeepSeekBaseURL(customBaseURL) || safeOauthStatus.provider === 'deepseek'
-          ? 'DeepSeek endpoint saved'
-          : 'OpenAI-compatible endpoint saved'
+          ? 'DeepSeek 接口已保存'
+          : 'OpenAI 兼容接口已保存'
         : safeOauthStatus.provider === 'gemini'
-          ? 'Gemini endpoint saved'
-          : 'Anthropic-compatible endpoint saved',
+          ? 'Gemini 接口已保存'
+          : 'Anthropic 兼容接口已保存',
       notificationType: 'auth_success'
     }, terminal);
   }, [safeOauthStatus, persistCustomEndpoint, terminal]);
@@ -565,11 +565,11 @@ function OAuthStatusMessage(t0) {
   switch (oauthStatus.state) {
     case "provider_select":
       {
-        return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>Select Model API Format</Text><Text>Choose the compatible API you want to use for IQcode.</Text><Box><Select options={[{
-          label: <Text>DeepSeek API · <Text dimColor={true}>Use DeepSeek's OpenAI-compatible chat endpoint</Text></Text>,
+        return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>选择模型 API 格式</Text><Text>请选择 IQcode 要使用的兼容接口类型。</Text><Box><Select options={[{
+          label: <Text>DeepSeek API · <Text dimColor={true}>使用 DeepSeek 的 OpenAI 兼容聊天接口</Text></Text>,
           value: "deepseek"
         }, {
-          label: <Text>OpenAI-like API · <Text dimColor={true}>Convert Anthropic Messages to Chat Completions</Text></Text>,
+          label: <Text>OpenAI 类接口 · <Text dimColor={true}>将 Anthropic Messages 转换为 Chat Completions</Text></Text>,
           value: "openai:chat_completions"
         }]} onChange={value_0 => {
           if (value_0 === 'deepseek') {
@@ -585,19 +585,19 @@ function OAuthStatusMessage(t0) {
         const isGeminiProvider = oauthStatus.provider === 'gemini';
         const isDeepSeekPreset = oauthStatus.preset === 'deepseek';
         const currentOpenAICompatMode = oauthStatus.openaiCompatMode ?? openAICompatMode;
-        const openAIFormatLabel = currentOpenAICompatMode === 'responses' ? 'OpenAI Responses compatible format' : 'OpenAI Chat Completions compatible format';
-        const currentProviderLabel = isDeepSeekPreset ? 'DeepSeek API format' : isOpenAIProvider ? openAIFormatLabel : isGeminiProvider ? 'Gemini native API format' : 'Anthropic Messages compatible format';
+        const openAIFormatLabel = currentOpenAICompatMode === 'responses' ? 'OpenAI Responses 兼容格式' : 'OpenAI Chat Completions 兼容格式';
+        const currentProviderLabel = isDeepSeekPreset ? 'DeepSeek API 格式' : isOpenAIProvider ? openAIFormatLabel : isGeminiProvider ? 'Gemini 原生接口格式' : 'Anthropic Messages 兼容格式';
         const pathSuffix = isOpenAIProvider ? currentOpenAICompatMode === 'responses' ? '/responses' : '/chat/completions' : isGeminiProvider ? '/models/{model}:streamGenerateContent' : '/v1/messages';
-        const label = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'Enter the DeepSeek API base URL:' : isOpenAIProvider ? `Enter the ${currentOpenAICompatMode === 'responses' ? 'OpenAI Responses' : 'OpenAI Chat Completions'} compatible base URL:` : isGeminiProvider ? 'Enter the Gemini API base URL:' : 'Enter the Anthropic Messages compatible base URL:' : oauthStatus.step === 'apiKey' ? isDeepSeekPreset ? 'Input DeepSeek API Key:' : isOpenAIProvider ? 'Input OpenAI API Key:' : isGeminiProvider ? 'Input Gemini API Key:' : 'Input Anthropic API Key:' : isDeepSeekPreset ? 'Enter the DeepSeek model name:' : 'Enter the default model name:';
+        const label = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? '请输入 DeepSeek API 基础地址：' : isOpenAIProvider ? `请输入 ${currentOpenAICompatMode === 'responses' ? 'OpenAI Responses' : 'OpenAI Chat Completions'} 兼容基础地址：` : isGeminiProvider ? '请输入 Gemini API 基础地址：' : '请输入 Anthropic Messages 兼容基础地址：' : oauthStatus.step === 'apiKey' ? isDeepSeekPreset ? '请输入 DeepSeek API Key：' : isOpenAIProvider ? '请输入 OpenAI API Key：' : isGeminiProvider ? '请输入 Gemini API Key：' : '请输入 Anthropic API Key：' : isDeepSeekPreset ? '请输入 DeepSeek 模型名称：' : '请输入默认模型名称：';
         const value = oauthStatus.step === 'baseURL' ? customBaseURL : oauthStatus.step === 'apiKey' ? customApiKey : customModel;
         const onChange = oauthStatus.step === 'baseURL' ? setCustomBaseURL : oauthStatus.step === 'apiKey' ? setCustomApiKey : setCustomModel;
-        const placeholder = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'https://api.deepseek.com/v1' : isOpenAIProvider ? 'http(s)://your-openai-compatible-endpoint.example.com/v1' : isGeminiProvider ? 'https://generativelanguage.googleapis.com/v1beta' : 'http(s)://your-anthropic-compatible-endpoint.example.com' : oauthStatus.step === 'apiKey' ? 'sk-...' : isDeepSeekPreset ? 'deepseek-v4-pro[1m]' : isOpenAIProvider ? 'gpt-4o-mini' : isGeminiProvider ? 'gemini-2.5-pro' : 'claude-3-5-sonnet-latest';
+        const placeholder = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'https://api.deepseek.com/v1' : isOpenAIProvider ? 'http(s)://你的 OpenAI 兼容接口地址/v1' : isGeminiProvider ? 'https://generativelanguage.googleapis.com/v1beta' : 'http(s)://你的 Anthropic 兼容接口地址' : oauthStatus.step === 'apiKey' ? 'sk-...' : isDeepSeekPreset ? 'deepseek-v4-pro[1m]' : isOpenAIProvider ? 'gpt-4o-mini' : isGeminiProvider ? 'gemini-2.5-pro' : 'claude-3-5-sonnet-latest';
         const mask = oauthStatus.step === 'apiKey' ? '*' : undefined;
-        return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>Configure compatible interfaces</Text><Text>{`Current selection: ${currentProviderLabel}`}</Text><Text>{label}</Text><Box flexDirection="row"><TextInput value={value} onChange={onChange} onSubmit={handleSubmitCustomConfig} onIsPastingChange={setIsCustomInputPasting} cursorOffset={cursorOffset} onChangeCursorOffset={setCursorOffset} columns={oauthStatus.step === 'baseURL' ? Math.max(20, textInputColumns - 12) : textInputColumns} focus={true} showCursor={true} placeholder={placeholder} mask={mask} dimColor={oauthStatus.step === 'model' && value.length === 0} />{oauthStatus.step === 'baseURL' ? <Text dimColor={true}>{pathSuffix}</Text> : null}</Box><Text dimColor={true}>{isCustomInputPasting ? 'Press Enter to save the current item and continue.' : 'Press Enter to save the current item and continue.'}</Text></Box>;
+        return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>配置兼容接口</Text><Text>{`当前选择：${currentProviderLabel}`}</Text><Text>{label}</Text><Box flexDirection="row"><TextInput value={value} onChange={onChange} onSubmit={handleSubmitCustomConfig} onIsPastingChange={setIsCustomInputPasting} cursorOffset={cursorOffset} onChangeCursorOffset={setCursorOffset} columns={oauthStatus.step === 'baseURL' ? Math.max(20, textInputColumns - 12) : textInputColumns} focus={true} showCursor={true} placeholder={placeholder} mask={mask} dimColor={oauthStatus.step === 'model' && value.length === 0} />{oauthStatus.step === 'baseURL' ? <Text dimColor={true}>{pathSuffix}</Text> : null}</Box><Text dimColor={true}>按 Enter 保存当前项并继续。</Text></Box>;
       }
     case "idle":
       {
-        const t1 = startingMessage ? startingMessage : "Claude Code can be used with your Claude subscription or billed based on API usage through your Console account.";
+        const t1 = startingMessage ? startingMessage : "Claude Code 可以使用你的 Claude 订阅，也可以通过 Console 账户按 API 用量计费。";
         let t2;
         if ($[0] !== t1) {
           t2 = <Text bold={true}>{t1}</Text>;
@@ -608,7 +608,7 @@ function OAuthStatusMessage(t0) {
         }
         let t3;
         if ($[2] === Symbol.for("react.memo_cache_sentinel")) {
-          t3 = <Text>Select login method:</Text>;
+          t3 = <Text>请选择登录方式：</Text>;
           $[2] = t3;
         } else {
           t3 = $[2];
@@ -616,7 +616,7 @@ function OAuthStatusMessage(t0) {
         let t4;
         if ($[3] === Symbol.for("react.memo_cache_sentinel")) {
           t4 = {
-            label: <Text>Claude account with subscription ·{" "}<Text dimColor={true}>Pro, Max, Team, or Enterprise</Text>{false && <Text>{"\n"}<Text color="warning">[ANT-ONLY]</Text>{" "}<Text dimColor={true}>Please use this option unless you need to login to a special org for accessing sensitive data (e.g. customer data, HIPI data) with the Console option</Text></Text>}{"\n"}</Text>,
+            label: <Text>订阅版 Claude 账号 · <Text dimColor={true}>Pro、Max、Team 或 Enterprise</Text>{false && <Text>{"\n"}<Text color="warning">[ANT-ONLY]</Text>{" "}<Text dimColor={true}>Please use this option unless you need to login to a special org for accessing sensitive data (e.g. customer data, HIPI data) with the Console option</Text></Text>}{"\n"}</Text>,
             value: "claudeai"
           };
           $[3] = t4;
@@ -626,7 +626,7 @@ function OAuthStatusMessage(t0) {
         let t5;
         if ($[4] === Symbol.for("react.memo_cache_sentinel")) {
           t5 = {
-            label: <Text>Anthropic Console account ·{" "}<Text dimColor={true}>API usage billing</Text>{"\n"}</Text>,
+            label: <Text>Anthropic Console 账号 · <Text dimColor={true}>按 API 用量计费</Text>{"\n"}</Text>,
             value: "console"
           };
           $[4] = t5;
@@ -636,7 +636,7 @@ function OAuthStatusMessage(t0) {
         let t6;
         if ($[5] === Symbol.for("react.memo_cache_sentinel")) {
           t6 = [t4, t5, {
-            label: <Text>3rd-party platform ·{" "}<Text dimColor={true}>Amazon Bedrock, Microsoft Foundry, or Vertex AI</Text>{"\n"}</Text>,
+            label: <Text>第三方平台 · <Text dimColor={true}>Amazon Bedrock、Microsoft Foundry 或 Vertex AI</Text>{"\n"}</Text>,
             value: "platform"
           }];
           $[5] = t6;
@@ -685,7 +685,7 @@ function OAuthStatusMessage(t0) {
       {
         let t1;
         if ($[12] === Symbol.for("react.memo_cache_sentinel")) {
-          t1 = <Text bold={true}>Using 3rd-party platforms</Text>;
+          t1 = <Text bold={true}>使用第三方平台</Text>;
           $[12] = t1;
         } else {
           t1 = $[12];
@@ -693,8 +693,8 @@ function OAuthStatusMessage(t0) {
         let t2;
         let t3;
         if ($[13] === Symbol.for("react.memo_cache_sentinel")) {
-          t2 = <Text>Claude Code supports Amazon Bedrock, Microsoft Foundry, and Vertex AI. Set the required environment variables, then restart Claude Code.</Text>;
-          t3 = <Text>If you are part of an enterprise organization, contact your administrator for setup instructions.</Text>;
+          t2 = <Text>Claude Code 支持 Amazon Bedrock、Microsoft Foundry 和 Vertex AI。请先设置所需环境变量，然后重新启动 Claude Code。</Text>;
+          t3 = <Text>如果你属于企业组织，请联系管理员获取配置说明。</Text>;
           $[13] = t2;
           $[14] = t3;
         } else {
@@ -703,7 +703,7 @@ function OAuthStatusMessage(t0) {
         }
         let t4;
         if ($[15] === Symbol.for("react.memo_cache_sentinel")) {
-          t4 = <Text bold={true}>Documentation:</Text>;
+          t4 = <Text bold={true}>文档：</Text>;
           $[15] = t4;
         } else {
           t4 = $[15];
@@ -731,7 +731,7 @@ function OAuthStatusMessage(t0) {
         }
         let t8;
         if ($[19] === Symbol.for("react.memo_cache_sentinel")) {
-          t8 = <Box flexDirection="column" gap={1} marginTop={1}>{t1}<Box flexDirection="column" gap={1}>{t2}{t3}{t7}<Box marginTop={1}><Text dimColor={true}>Press <Text bold={true}>Enter</Text> to go back to login options.</Text></Box></Box></Box>;
+          t8 = <Box flexDirection="column" gap={1} marginTop={1}>{t1}<Box flexDirection="column" gap={1}>{t2}{t3}{t7}<Box marginTop={1}><Text dimColor={true}>按 <Text bold={true}>Enter</Text> 返回登录选项。</Text></Box></Box></Box>;
           $[19] = t8;
         } else {
           t8 = $[19];
@@ -750,7 +750,7 @@ function OAuthStatusMessage(t0) {
         }
         let t2;
         if ($[22] !== showPastePrompt) {
-          t2 = !showPastePrompt && <Box><Spinner /><Text>Opening browser to sign in…</Text></Box>;
+          t2 = !showPastePrompt && <Box><Spinner /><Text>正在打开浏览器进行登录…</Text></Box>;
           $[22] = showPastePrompt;
           $[23] = t2;
         } else {
@@ -787,7 +787,7 @@ function OAuthStatusMessage(t0) {
       {
         let t1;
         if ($[37] === Symbol.for("react.memo_cache_sentinel")) {
-          t1 = <Box flexDirection="column" gap={1}><Box><Spinner /><Text>Creating API key for Claude Code…</Text></Box></Box>;
+          t1 = <Box flexDirection="column" gap={1}><Box><Spinner /><Text>正在为 Claude Code 创建 API Key…</Text></Box></Box>;
           $[37] = t1;
         } else {
           t1 = $[37];
@@ -798,7 +798,7 @@ function OAuthStatusMessage(t0) {
       {
         let t1;
         if ($[38] === Symbol.for("react.memo_cache_sentinel")) {
-          t1 = <Box flexDirection="column" gap={1}><Text color="permission">Retrying…</Text></Box>;
+          t1 = <Box flexDirection="column" gap={1}><Text color="permission">正在重试…</Text></Box>;
           $[38] = t1;
         } else {
           t1 = $[38];
@@ -809,7 +809,7 @@ function OAuthStatusMessage(t0) {
       {
         let t1;
         if ($[39] !== mode || $[40] !== oauthStatus.token) {
-          t1 = mode === "setup-token" && oauthStatus.token ? null : <>{getOauthAccountInfo()?.emailAddress ? <Text dimColor={true}>Logged in as{" "}<Text>{getOauthAccountInfo()?.emailAddress}</Text></Text> : null}<Text color="success">Login successful. Press <Text bold={true}>Enter</Text> to continue…</Text></>;
+          t1 = mode === "setup-token" && oauthStatus.token ? null : <>{getOauthAccountInfo()?.emailAddress ? <Text dimColor={true}>当前登录账号：<Text>{getOauthAccountInfo()?.emailAddress}</Text></Text> : null}<Text color="success">登录成功。按 <Text bold={true}>Enter</Text> 继续…</Text></>;
           $[39] = mode;
           $[40] = oauthStatus.token;
           $[41] = t1;
@@ -830,7 +830,7 @@ function OAuthStatusMessage(t0) {
       {
         let t1;
         if ($[44] !== oauthStatus.message) {
-          t1 = <Text color="error">OAuth error: {oauthStatus.message}</Text>;
+          t1 = <Text color="error">认证错误：{oauthStatus.message}</Text>;
           $[44] = oauthStatus.message;
           $[45] = t1;
         } else {
@@ -838,7 +838,7 @@ function OAuthStatusMessage(t0) {
         }
         let t2;
         if ($[46] !== oauthStatus.toRetry) {
-          t2 = oauthStatus.toRetry && <Box marginTop={1}><Text color="permission">Press <Text bold={true}>Enter</Text> to retry.</Text></Box>;
+          t2 = oauthStatus.toRetry && <Box marginTop={1}><Text color="permission">按 <Text bold={true}>Enter</Text> 重试。</Text></Box>;
           $[46] = oauthStatus.toRetry;
           $[47] = t2;
         } else {

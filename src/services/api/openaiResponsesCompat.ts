@@ -83,13 +83,19 @@ function mapEffortToResponsesReasoning(
   effort?: EffortValue,
 ): OpenAIResponsesRequest['reasoning'] | undefined {
   if (effort === 'none') return undefined
-  if (effort === 'low' || effort === 'medium' || effort === 'high') {
+  if (effort === 'low') {
     return {
-      effort,
+      effort: 'low',
       summary: 'auto',
     }
   }
-  if (effort === 'max' || typeof effort === 'number') {
+  if (effort === 'medium') {
+    return {
+      effort: 'medium',
+      summary: 'auto',
+    }
+  }
+  if (effort === 'high' || effort === 'max' || typeof effort === 'number') {
     return {
       effort: 'high',
       summary: 'auto',

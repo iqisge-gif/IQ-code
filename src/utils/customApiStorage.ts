@@ -63,7 +63,9 @@ export function readCustomApiStorage(): CustomApiStorageData {
       : undefined
   const openaiCompatMode =
     value.openaiCompatMode === 'chat_completions' || value.openaiCompatMode === 'responses'
-      ? value.openaiCompatMode
+      ? provider === 'deepseek'
+        ? 'chat_completions'
+        : value.openaiCompatMode
       : provider === 'openai' || provider === 'deepseek'
         ? 'chat_completions'
         : undefined
@@ -106,7 +108,9 @@ function normalizeProviderEntry(value: unknown, fallbackIndex = 0): CustomApiPro
   const raw = value as Record<string, unknown>
   const provider = isCustomApiProvider(raw.provider) ? raw.provider : undefined
   const openaiCompatMode = isOpenAICompatMode(raw.openaiCompatMode)
-    ? raw.openaiCompatMode
+    ? provider === 'deepseek'
+      ? 'chat_completions'
+      : raw.openaiCompatMode
     : provider === 'openai' || provider === 'deepseek'
       ? 'chat_completions'
       : undefined

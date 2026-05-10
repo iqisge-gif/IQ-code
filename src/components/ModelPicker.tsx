@@ -235,7 +235,7 @@ export function ModelPicker(t0) {
       if (!skipSettingsWrite) {
         const effortLevel = resolvePickerEffortPersistence(effort, getDefaultEffortLevelForOption(value_0), getSettingsForSource("userSettings")?.effortLevel, hasToggledEffort);
         updateSettingsForSource("userSettings", {
-          effortLevel: effortLevel === 'none' ? undefined : effortLevel as 'low' | 'medium' | 'high' | 'max' | undefined
+          effortLevel: effortLevel === 'none' ? undefined : effortLevel as 'low' | 'medium' | 'high' | 'max' | 'token节省最大智商' | undefined
         });
         setAppState(prev_0 => ({
           ...prev_0,

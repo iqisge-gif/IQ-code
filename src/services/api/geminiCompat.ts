@@ -143,10 +143,10 @@ function mapToolChoice(
 
 function mapEffortToGeminiThinkingBudget(effort?: EffortValue): number | undefined {
   if (effort === 'none') return 0
-  if (effort === 'low') return 1024
-  if (effort === 'medium') return 4096
-  if (effort === 'high') return 8192
-  if (effort === 'max' || typeof effort === 'number') return 8192
+  if (effort === 'low') return 512
+  if (effort === 'medium') return 2048
+  if (effort === 'high') return 4096
+  if (effort === 'max' || typeof effort === 'number') return 4096
   return undefined
 }
 
