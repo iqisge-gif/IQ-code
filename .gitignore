@@ -12,7 +12,7 @@ coverage/
 *.tmp
 *.swp
 *.swo
-*.md
+
 *.pnh
 *.zip
 .doge/

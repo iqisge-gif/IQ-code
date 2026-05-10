@@ -1,7 +1,6 @@
 import { c as _c } from "react/compiler-runtime";
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import * as React from 'react';
-import axios from 'axios';
 import { Box, Text, color } from '../../ink.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import { stringWidth } from '../../ink/stringWidth.js';
@@ -22,7 +21,7 @@ import { OffscreenFreeze } from '../OffscreenFreeze.js';
 import { checkForReleaseNotesSync } from '../../utils/releaseNotes.js';
 import { getDumpPromptsPath } from 'src/services/api/dumpPrompts.js';
 import { isEnvTruthy } from 'src/utils/envUtils.js';
-import { readCurrentCustomApiProvider } from 'src/utils/customApiStorage.js';
+import { fetchDeepSeekBalance, formatDeepSeekBalance, type DeepSeekBalanceResponse } from 'src/utils/deepseekBalance.js';
 import { getStartupPerfLogPath, isDetailedProfilingEnabled } from 'src/utils/startupProfiler.js';
 import { EmergencyTip } from './EmergencyTip.js';
 import { VoiceModeNotice } from './VoiceModeNotice.js';
@@ -48,25 +47,11 @@ import { useMainLoopModel } from '../../hooks/useMainLoopModel.js';
 import { renderModelSetting } from '../../utils/model/model.js';
 const LEFT_PANEL_MAX_WIDTH = 50;
 
-type DeepSeekBalanceInfo = {
-  currency?: string
-  total_balance?: string
-}
-
 type DeepSeekBalanceResponse = {
   is_available?: boolean
-  balance_infos?: DeepSeekBalanceInfo[]
+  balance_infos?: Array<{ currency?: string; total_balance?: string }>
 }
 
-function formatDeepSeekBalance(balance: DeepSeekBalanceResponse | null): string | null {
-  if (!balance?.is_available) return 'Balance unavailable'
-  const usd = balance.balance_infos?.find(item => item.currency === 'USD')?.total_balance
-  const cny = balance.balance_infos?.find(item => item.currency === 'CNY')?.total_balance
-  if (usd && cny) return `Balance: USD ${usd} · CNY ${cny}`
-  if (usd) return `Balance: USD ${usd}`
-  if (cny) return `Balance: CNY ${cny}`
-  return 'Balance unavailable'
-}
 export function LogoV2() {
   const $ = _c(94);
   const activities = getRecentActivitySync();
@@ -181,23 +166,21 @@ export function LogoV2() {
   }
   useEffect(t7, t8);
   useEffect(() => {
-    const provider = readCurrentCustomApiProvider();
-    if (provider?.provider !== 'deepseek' || !provider.baseURL || !provider.apiKey) {
-      setDeepSeekBalance(null);
-      return;
+    let cancelled = false
+    const run = (): void => {
+      void fetchDeepSeekBalance().then(balance => {
+        if (!cancelled) {
+          setDeepSeekBalance(balance)
+        }
+      })
     }
-    const url = `${provider.baseURL.replace(/\/$/, '')}/user/balance`;
-    void axios.get<DeepSeekBalanceResponse>(url, {
-      headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
-      },
-      timeout: 10000,
-    }).then(response => {
-      setDeepSeekBalance(response.data ?? null);
-    }).catch(() => {
-      setDeepSeekBalance(null);
-    });
-  }, []);
+    run()
+    const interval = setInterval(run, 30_000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
   const model = useMainLoopModel();
   const fullModelDisplayName = renderModelSetting(model);
   const {

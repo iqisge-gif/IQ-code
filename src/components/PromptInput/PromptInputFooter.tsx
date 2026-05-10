@@ -1,6 +1,5 @@
 import { feature } from 'bun:bundle';
 import * as React from 'react';
-import axios from 'axios';
 import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { isBridgeEnabled } from '../../bridge/bridgeEnabled.js';
 import { getBridgeStatus } from '../../bridge/bridgeStatusUtil.js';
@@ -17,7 +16,7 @@ import type { Message } from '../../types/message.js';
 import type { PromptInputMode, VimMode } from '../../types/textInputTypes.js';
 import type { AutoUpdaterResult } from '../../utils/autoUpdater.js';
 import { isFullscreenEnvEnabled } from '../../utils/fullscreen.js';
-import { readCurrentCustomApiProvider } from '../../utils/customApiStorage.js';
+import { fetchDeepSeekBalance, formatDeepSeekBalance, type DeepSeekBalanceResponse } from '../../utils/deepseekBalance.js';
 import { isUndercover } from '../../utils/undercover.js';
 import { CoordinatorTaskPanel, useCoordinatorTaskCount } from '../CoordinatorAgentStatus.js';
 import { getLastAssistantMessageId, StatusLine, statusLineShouldDisplay } from '../StatusLine.js';
@@ -25,26 +24,6 @@ import { Notifications } from './Notifications.js';
 import { PromptInputFooterLeftSide } from './PromptInputFooterLeftSide.js';
 import { PromptInputFooterSuggestions, type SuggestionItem } from './PromptInputFooterSuggestions.js';
 import { PromptInputHelpMenu } from './PromptInputHelpMenu.js';
-type DeepSeekBalanceInfo = {
-  currency?: string;
-  total_balance?: string;
-};
-
-type DeepSeekBalanceResponse = {
-  is_available?: boolean;
-  balance_infos?: DeepSeekBalanceInfo[];
-};
-
-function formatDeepSeekBalance(balance: DeepSeekBalanceResponse | null): string | null {
-  if (!balance?.is_available) return null;
-  const usd = balance.balance_infos?.find(item => item.currency === 'USD')?.total_balance;
-  const cny = balance.balance_infos?.find(item => item.currency === 'CNY')?.total_balance;
-  if (usd && cny) return `Balance: USD ${usd} · CNY ${cny}`;
-  if (usd) return `Balance: USD ${usd}`;
-  if (cny) return `Balance: CNY ${cny}`;
-  return null;
-}
-
 type Props = {
   apiKeyStatus: VerificationStatus;
   debug: boolean;
@@ -145,22 +124,20 @@ function PromptInputFooter({
   const suppressHint = suppressHintFromProps || statusLineShouldDisplay(settings) || isSearching;
   const balanceLine = useMemo(() => formatDeepSeekBalance(deepSeekBalance), [deepSeekBalance]);
   useEffect(() => {
-    const provider = readCurrentCustomApiProvider();
-    if (provider?.provider !== 'deepseek' || !provider.baseURL || !provider.apiKey) {
-      setDeepSeekBalance(null);
-      return;
-    }
-    const url = `${provider.baseURL.replace(/\/$/, '')}/user/balance`;
-    void axios.get<DeepSeekBalanceResponse>(url, {
-      headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
-      },
-      timeout: 10000,
-    }).then(response => {
-      setDeepSeekBalance(response.data ?? null);
-    }).catch(() => {
-      setDeepSeekBalance(null);
-    });
+    let cancelled = false;
+    const run = (): void => {
+      void fetchDeepSeekBalance().then(balance => {
+        if (!cancelled) {
+          setDeepSeekBalance(balance);
+        }
+      });
+    };
+    run();
+    const interval = setInterval(run, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
   // Fullscreen: portal data to FullscreenLayout — see promptOverlayContext.tsx
   const overlayData = useMemo(() => isFullscreen && suggestions.length ? {
