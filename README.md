@@ -38,7 +38,7 @@ curl -fsSL "https://raw.githubusercontent.com/Happ1ness-dev/bun-termux/main/help
 
 git clone https://github.com/iqisge-gif/IQ-code.git
 
-
+cd IQ-code
 
 bun install
 
