@@ -3,7 +3,7 @@ import { isUltrathinkEnabled } from './thinking.js'
 import { getInitialSettings } from './settings/settings.js'
 import { isProSubscriber, isMaxSubscriber, isTeamSubscriber } from './auth.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
-import { readCurrentCustomApiProvider, readCustomApiStorage } from './customApiStorage.js'
+import { isDeepSeekCompatibleProvider, readCurrentCustomApiProvider, readCustomApiStorage } from './customApiStorage.js'
 import { getAPIProvider } from './model/providers.js'
 import { get3PModelCapabilityOverride } from './model/modelSupportOverrides.js'
 import { isEnvTruthy } from './envUtils.js'
@@ -210,10 +210,9 @@ export function getNamedReasoningMode(
   model: string,
   effortValue: EffortValue | undefined,
 ): string | null {
-  const provider =
-    readCurrentCustomApiProvider()?.provider ?? readCustomApiStorage().provider
+  const provider = readCurrentCustomApiProvider() ?? readCustomApiStorage()
   if (
-    provider === 'deepseek' &&
+    isDeepSeekCompatibleProvider(provider) &&
     isTokenSavingMaxIntelligenceRequested(effortValue)
   ) {
     return 'token节省最大智商'
@@ -329,9 +328,8 @@ export function getOpusDefaultEffortConfig(): OpusDefaultEffortConfig {
 export function getDefaultEffortForModel(
   model: string,
 ): EffortValue | undefined {
-  const provider =
-    readCurrentCustomApiProvider()?.provider ?? readCustomApiStorage().provider
-  if (provider === 'deepseek') {
+  const provider = readCurrentCustomApiProvider() ?? readCustomApiStorage()
+  if (isDeepSeekCompatibleProvider(provider)) {
     return 'max'
   }
 

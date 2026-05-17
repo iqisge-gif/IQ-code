@@ -8,6 +8,7 @@ import {
   getDogeGlobalConfigFile,
 } from './dogeConfigDir.js'
 import { getClaudeConfigHomeDir, isEnvTruthy } from './envUtils.js'
+import { isTermux } from './termux.js'
 import { findExecutable } from './findExecutable.js'
 import { getFsImplementation } from './fsOperations.js'
 import { which } from './which.js'
@@ -141,6 +142,7 @@ export const JETBRAINS_IDES = [
 
 // Detect terminal type with fallbacks for all platforms
 function detectTerminal(): string | null {
+  if (isTermux()) return 'termux'
   if (process.env.CURSOR_TRACE_ID) return 'cursor'
   // Cursor and Windsurf under WSL have TERM_PROGRAM=vscode
   if (process.env.VSCODE_GIT_ASKPASS_MAIN?.includes('cursor')) {

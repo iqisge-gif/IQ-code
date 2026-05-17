@@ -13,6 +13,7 @@ import {
   shouldAddStdinRedirect,
 } from '../bash/shellQuoting.js'
 import { logForDebugging } from '../debug.js'
+import { getTermuxTmpDir } from '../termux.js'
 import { getPlatform } from '../platform.js'
 import { getSessionEnvironmentScript } from '../sessionEnvironment.js'
 import { getSessionEnvVars } from '../sessionEnvVars.js'
@@ -105,7 +106,7 @@ export async function createBashShellProvider(
       // Stash sandboxTmpDir for use in getEnvironmentOverrides
       currentSandboxTmpDir = opts.sandboxTmpDir
 
-      const tmpdir = osTmpdir()
+      const tmpdir = getTermuxTmpDir() ?? osTmpdir()
       const isWindows = getPlatform() === 'windows'
       const shellTmpdir = isWindows ? windowsPathToPosixPath(tmpdir) : tmpdir
 

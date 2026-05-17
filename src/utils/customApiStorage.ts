@@ -35,6 +35,60 @@ export type CustomApiProvidersStorageData = {
 const CUSTOM_API_STORAGE_KEY = 'customApiEndpoint'
 const DEFAULT_PROVIDER_NAME_PREFIX = 'Provider'
 
+export function isDeepSeekBaseURL(value: string | undefined | null): boolean {
+  if (!value) return false
+  try {
+    return new URL(value).host === 'api.deepseek.com'
+  } catch {
+    return /api\.deepseek\.com/i.test(value)
+  }
+}
+
+export function isDeepSeekAnthropicBaseURL(
+  value: string | undefined | null,
+): boolean {
+  if (!value) return false
+  try {
+    const url = new URL(value)
+    return (
+      url.host === 'api.deepseek.com' &&
+      /^\/anthropic(?:\/|$)/i.test(url.pathname)
+    )
+  } catch {
+    return /api\.deepseek\.com\/anthropic(?:\/|$)/i.test(value)
+  }
+}
+
+export function isDeepSeekCompatibleProvider(
+  provider:
+    | Pick<CustomApiStorageData, 'provider' | 'baseURL'>
+    | Pick<CustomApiProviderEntry, 'provider' | 'baseURL'>
+    | undefined
+    | null,
+): boolean {
+  return provider?.provider === 'deepseek' || isDeepSeekBaseURL(provider?.baseURL)
+}
+
+export function supportsDeepSeekAnthropicFeatures(
+  provider:
+    | Pick<CustomApiStorageData, 'provider' | 'baseURL'>
+    | Pick<CustomApiProviderEntry, 'provider' | 'baseURL'>
+    | undefined
+    | null,
+): boolean {
+  return isDeepSeekCompatibleProvider(provider) && isDeepSeekAnthropicBaseURL(provider?.baseURL)
+}
+
+export function usesDeepSeekOpenAICompat(
+  provider:
+    | Pick<CustomApiStorageData, 'provider' | 'baseURL'>
+    | Pick<CustomApiProviderEntry, 'provider' | 'baseURL'>
+    | undefined
+    | null,
+): boolean {
+  return isDeepSeekCompatibleProvider(provider) && !isDeepSeekAnthropicBaseURL(provider?.baseURL)
+}
+
 export function readCustomApiStorage(): CustomApiStorageData {
   const storage = getStorage()
   const data = storage.read?.() ?? {}
@@ -63,10 +117,10 @@ export function readCustomApiStorage(): CustomApiStorageData {
       : undefined
   const openaiCompatMode =
     value.openaiCompatMode === 'chat_completions' || value.openaiCompatMode === 'responses'
-      ? provider === 'deepseek'
+      ? isDeepSeekCompatibleProvider({ provider, baseURL: typeof value.baseURL === 'string' ? value.baseURL : undefined })
         ? 'chat_completions'
         : value.openaiCompatMode
-      : provider === 'openai' || provider === 'deepseek'
+      : provider === 'openai'
         ? 'chat_completions'
         : undefined
 
@@ -108,10 +162,10 @@ function normalizeProviderEntry(value: unknown, fallbackIndex = 0): CustomApiPro
   const raw = value as Record<string, unknown>
   const provider = isCustomApiProvider(raw.provider) ? raw.provider : undefined
   const openaiCompatMode = isOpenAICompatMode(raw.openaiCompatMode)
-    ? provider === 'deepseek'
+    ? isDeepSeekCompatibleProvider({ provider, baseURL: typeof raw.baseURL === 'string' ? raw.baseURL : undefined })
       ? 'chat_completions'
       : raw.openaiCompatMode
-    : provider === 'openai' || provider === 'deepseek'
+    : provider === 'openai'
       ? 'chat_completions'
       : undefined
   const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : `provider-${fallbackIndex + 1}-${randomUUID()}`
@@ -273,7 +327,8 @@ export function createCustomApiProviderEntry(
     name: overrides.name?.trim() || getDefaultProviderName(index),
     provider: overrides.provider,
     openaiCompatMode:
-      overrides.openaiCompatMode ?? (overrides.provider === 'openai' ? 'chat_completions' : undefined),
+      overrides.openaiCompatMode ??
+      (overrides.provider === 'openai' ? 'chat_completions' : undefined),
     baseURL: overrides.baseURL,
     apiKey: overrides.apiKey,
     model: overrides.model,
@@ -288,7 +343,9 @@ export function formatCustomApiProviderType(provider?: CustomApiProvider): strin
       ? 'Gemini API'
       : provider === 'anthropic'
         ? 'Anthropic-compatible'
-        : 'Not set'
+        : provider === 'deepseek'
+          ? 'DeepSeek API'
+          : 'Not set'
 }
 
 export function formatCustomApiProviderIndex(index: number): string {

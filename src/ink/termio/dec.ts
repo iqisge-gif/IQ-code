@@ -6,6 +6,7 @@
  */
 
 import { csi } from './csi.js'
+import { isTermux } from '../../utils/termux.js'
 
 /**
  * DEC private mode numbers
@@ -48,11 +49,14 @@ export const EXIT_ALT_SCREEN = decreset(DEC.ALT_SCREEN_CLEAR)
 // events (button-motion), 1003 adds all-motion (no button held — for
 // hover), 1006 uses SGR format (CSI < btn;col;row M/m) instead of legacy
 // X10 bytes. Combined: wheel + click/drag for selection + hover.
-export const ENABLE_MOUSE_TRACKING =
-  decset(DEC.MOUSE_NORMAL) +
-  decset(DEC.MOUSE_BUTTON) +
-  decset(DEC.MOUSE_ANY) +
-  decset(DEC.MOUSE_SGR)
+// Termux's terminal backend can redraw poorly with all-motion mouse tracking.
+// Keep wheel/click/drag support, but avoid mode 1003 hover events there.
+export const ENABLE_MOUSE_TRACKING = isTermux()
+  ? decset(DEC.MOUSE_NORMAL) + decset(DEC.MOUSE_BUTTON) + decset(DEC.MOUSE_SGR)
+  : decset(DEC.MOUSE_NORMAL) +
+    decset(DEC.MOUSE_BUTTON) +
+    decset(DEC.MOUSE_ANY) +
+    decset(DEC.MOUSE_SGR)
 export const DISABLE_MOUSE_TRACKING =
   decreset(DEC.MOUSE_SGR) +
   decreset(DEC.MOUSE_ANY) +

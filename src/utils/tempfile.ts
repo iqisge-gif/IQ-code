@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'crypto'
-import { tmpdir } from 'os'
 import { join } from 'path'
+import { getClaudeTempDir } from './permissions/filesystem.js'
 
 /**
  * Generate a temporary file path.
@@ -27,5 +27,5 @@ export function generateTempFilePath(
         .digest('hex')
         .slice(0, 16)
     : randomUUID()
-  return join(tmpdir(), `${prefix}-${id}${extension}`)
+  return join(getClaudeTempDir(), `${prefix}-${id}${extension}`)
 }

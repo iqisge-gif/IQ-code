@@ -98,6 +98,7 @@ const skillSearchFeatureCheck = feature('EXPERIMENTAL_SKILL_SEARCH')
 /* eslint-enable @typescript-eslint/no-require-imports */
 import type { OutputStyleConfig } from './outputStyles.js'
 import { CYBER_RISK_INSTRUCTION } from './cyberRiskInstruction.js'
+import { CODING_AGENT_SYSTEM_PROMPT } from './codingAgentInstructions.js'
 
 export const CLAUDE_CODE_DOCS_MAP_URL =
   'https://code.claude.com/docs/en/claude_code_docs_map.md'
@@ -566,6 +567,7 @@ ${CYBER_RISK_INSTRUCTION}`,
       ? getSimpleDoingTasksSection()
       : null,
     getActionsSection(),
+    CODING_AGENT_SYSTEM_PROMPT,
     getUsingYourToolsSection(enabledTools),
     getSimpleToneAndStyleSection(),
     getOutputEfficiencySection(),

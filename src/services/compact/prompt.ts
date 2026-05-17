@@ -1,4 +1,5 @@
 import { feature } from 'bun:bundle'
+import { CODING_AGENT_COMPACT_FALLBACK_PROMPT } from '../../constants/codingAgentInstructions.js'
 import type { PartialCompactDirection } from '../../types/message.js'
 
 // Dead code elimination: conditional import for proactive mode
@@ -73,8 +74,7 @@ Your summary should include the following sections:
 6. All user messages: List ALL user messages that are not tool results. These are critical for understanding the users' feedback and changing intent.
 7. Pending Tasks: Outline any pending tasks that you have explicitly been asked to work on.
 8. Current Work: Describe in detail precisely what was being worked on immediately before this summary request, paying special attention to the most recent messages from both user and assistant. Include file names and code snippets where applicable.
-9. Optional Next Step: List the next step that you will take that is related to the most recent work you were doing. IMPORTANT: ensure that this step is DIRECTLY in line with the user's most recent explicit requests, and the task you were working on immediately before this summary request. If your last task was concluded, then only list next steps if they are explicitly in line with the users request. Do not start on tangential requests or really old requests that were already completed without confirming with the user first.
-                       If there is a next step, include direct quotes from the most recent conversation showing exactly what task you were working on and where you left off. This should be verbatim to ensure there's no drift in task interpretation.
+10. Mandatory Working State: Preserve these fields exactly enough for the next model to continue without asking again: current goal, hard constraints, files read, searches performed, files changed, validation still needed, latest failures/errors, unresolved unknowns.
 
 Here's an example of how your output should be structured:
 
@@ -125,6 +125,16 @@ Here's an example of how your output should be structured:
 9. Optional Next Step:
    [Optional Next step to take]
 
+10. Mandatory Working State:
+   - current goal: [goal]
+   - hard constraints: [constraints]
+   - files read: [files and key facts]
+   - searches performed: [queries and findings]
+   - files changed: [files and why]
+   - validation still needed: [commands/checks]
+   - latest failures/errors: [error and root-cause status]
+   - unresolved unknowns: [unknowns]
+
 </summary>
 </example>
 
@@ -157,6 +167,7 @@ Your summary should include the following sections:
 7. Pending Tasks: Outline any pending tasks from the recent messages.
 8. Current Work: Describe precisely what was being worked on immediately before this summary request.
 9. Optional Next Step: List the next step related to the most recent work. Include direct quotes from the most recent conversation.
+10. Mandatory Working State: Preserve current goal, hard constraints, files read, searches performed, files changed, validation still needed, latest failures/errors, and unresolved unknowns.
 
 Here's an example of how your output should be structured:
 
@@ -220,6 +231,7 @@ Your summary should include the following sections:
 7. Pending Tasks: Outline any pending tasks.
 8. Work Completed: Describe what was accomplished by the end of this portion.
 9. Context for Continuing Work: Summarize any context, decisions, or state that would be needed to understand and continue the work in subsequent messages.
+10. Mandatory Working State: Preserve current goal, hard constraints, files read, searches performed, files changed, validation still needed, latest failures/errors, and unresolved unknowns.
 
 Here's an example of how your output should be structured:
 
@@ -344,7 +356,11 @@ export function getCompactUserSummaryMessage(
 
   let baseSummary = `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
 
-${formattedSummary}`
+Treat this summary as active working context. Before continuing, recover the current goal, hard constraints, files read, searches performed, files changed, pending validation, recent errors, and unresolved unknowns from it. Do not ask the user to repeat information that is present here. If the summary mentions file contents or command results, verify against the current repository before acting on them.
+
+${formattedSummary}
+
+${CODING_AGENT_COMPACT_FALLBACK_PROMPT}`
 
   if (transcriptPath) {
     baseSummary += `\n\nIf you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: ${transcriptPath}`

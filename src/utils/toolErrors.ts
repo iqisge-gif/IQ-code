@@ -1,4 +1,5 @@
 import type { ZodError } from 'zod/v4'
+import { FILE_EDIT_TOOL_NAME } from '../tools/FileEditTool/constants.js'
 import { AbortError, ShellError } from './errors.js'
 import { INTERRUPT_MESSAGE_FOR_TOOL_USE } from './messages.js'
 
@@ -126,6 +127,17 @@ export function formatZodValidationError(
 
   if (errorParts.length > 0) {
     errorContent = `${toolName} failed due to the following ${errorParts.length > 1 ? 'issues' : 'issue'}:\n${errorParts.join('\n')}`
+  }
+
+  if (toolName === FILE_EDIT_TOOL_NAME) {
+    const missing = new Set(missingParams)
+    const missingCoreEditParam =
+      missing.has('file_path') ||
+      missing.has('old_string') ||
+      missing.has('new_string')
+    if (missingCoreEditParam) {
+      errorContent += `\n\nEdit tool recovery instructions:\n- This is a malformed Edit tool call, not a problem with the target code.\n- Retry only after providing all required fields: file_path, old_string, and new_string.\n- file_path must be the absolute path of the file to modify.\n- old_string must be copied from a recent Read result for that exact file; do not invent it.\n- new_string must be the replacement text and must differ from old_string.\n- If replacing an entire file, use the Write tool instead of Edit after reading the existing file when required.`
+    }
   }
 
   return errorContent

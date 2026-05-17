@@ -1,6 +1,7 @@
 import { coerce } from 'semver'
 import type { Writable } from 'stream'
 import { env } from '../utils/env.js'
+import { isTermux } from '../utils/termux.js'
 import { gte } from '../utils/semver.js'
 import { getClearTerminalSequence } from './clearTerminal.js'
 import type { Diff } from './frame.js'
@@ -23,6 +24,7 @@ export type Progress = {
  * Note: Windows Terminal interprets OSC 9;4 as notifications, not progress.
  */
 export function isProgressReportingAvailable(): boolean {
+  if (isTermux()) return false
   // Only available if we have a TTY (not piped)
   if (!process.stdout.isTTY) {
     return false
@@ -68,6 +70,7 @@ export function isProgressReportingAvailable(): boolean {
  * When supported, BSU/ESU sequences prevent visible flicker during redraws.
  */
 export function isSynchronizedOutputSupported(): boolean {
+  if (isTermux()) return false
   // tmux parses and proxies every byte but doesn't implement DEC 2026.
   // BSU/ESU pass through to the outer terminal but tmux has already
   // broken atomicity by chunking. Skip to save 16 bytes/frame + parser work.
@@ -165,7 +168,7 @@ const EXTENDED_KEYS_TERMINALS = [
 /** True if this terminal correctly handles extended key reporting
  *  (Kitty keyboard protocol + xterm modifyOtherKeys). */
 export function supportsExtendedKeys(): boolean {
-  return EXTENDED_KEYS_TERMINALS.includes(env.terminal ?? '')
+  return !isTermux() && EXTENDED_KEYS_TERMINALS.includes(env.terminal ?? '')
 }
 
 /** True if the terminal scrolls the viewport when it receives cursor-up

@@ -13,7 +13,7 @@ import { OAuthService } from '../services/oauth/index.js';
 import { getOauthAccountInfo, validateForceLoginOrg } from '../utils/auth.js';
 import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js';
 import { normalizeApiKeyForConfig } from '../utils/authPortable.js';
-import { getCurrentCustomApiProviderWithIndex, persistCustomApiProviders, readCurrentCustomApiProvider } from '../utils/customApiStorage.js';
+import { getCurrentCustomApiProviderWithIndex, isDeepSeekBaseURL as isDeepSeekProviderBaseURL, persistCustomApiProviders, readCurrentCustomApiProvider } from '../utils/customApiStorage.js';
 import { logError } from '../utils/log.js';
 import { getSettings_DEPRECATED } from '../utils/settings/settings.js';
 import { Select } from './CustomSelect/select.js';
@@ -69,7 +69,7 @@ type OAuthStatus = {
 const PASTE_HERE_MSG = 'Paste code here if prompted > ';
 
 function isDeepSeekBaseURL(value: string): boolean {
-  return /api\.deepseek\.com/i.test(value)
+  return isDeepSeekProviderBaseURL(value)
 }
 export function ConsoleOAuthFlow({
   onDone,
@@ -124,19 +124,19 @@ export function ConsoleOAuthFlow({
   const textInputColumns = useTerminalSize().columns - PASTE_HERE_MSG.length - 1;
 
   const startCompatibleApiConfig = useCallback((provider: CompatibleApiProvider, mode?: OpenAICompatMode, preset?: CompatibleApiPreset) => {
-    const nextProvider = preset === 'deepseek' ? 'deepseek' : provider;
+    const nextProvider = preset === 'deepseek' ? 'anthropic' : provider;
     setCompatibleApiProvider(nextProvider);
     if (mode) {
       setOpenAICompatMode(mode);
     }
     if (preset === 'deepseek') {
-      setCustomBaseURL('https://api.deepseek.com/v1');
+      setCustomBaseURL('https://api.deepseek.com/anthropic');
       setCustomModel(current => current || 'deepseek-v4-pro[1m]');
     }
     setOAuthStatus({
       state: 'custom_config',
       provider: nextProvider,
-      openaiCompatMode: mode,
+      openaiCompatMode: preset === 'deepseek' ? undefined : mode,
       preset,
       step: 'baseURL'
     });
@@ -227,7 +227,7 @@ export function ConsoleOAuthFlow({
         ...((getGlobalConfig().customApiProviders ?? []).map(provider => provider.id === currentProvider.id ? {
           ...provider,
           provider: compatibleApiProvider,
-          openaiCompatMode: compatibleApiProvider === 'openai' || compatibleApiProvider === 'deepseek' ? openAICompatMode : undefined,
+          openaiCompatMode: compatibleApiProvider === 'openai' ? openAICompatMode : undefined,
           baseURL: nextBaseURL,
           apiKey: nextApiKey,
           model: nextModel,
@@ -319,13 +319,15 @@ export function ConsoleOAuthFlow({
       state: 'success'
     });
     void sendNotification({
-      message: safeOauthStatus.provider === 'openai' || safeOauthStatus.provider === 'deepseek'
-        ? isDeepSeekBaseURL(customBaseURL) || safeOauthStatus.provider === 'deepseek'
+      message: safeOauthStatus.provider === 'openai'
+        ? isDeepSeekBaseURL(customBaseURL)
           ? 'DeepSeek 接口已保存'
           : 'OpenAI 兼容接口已保存'
         : safeOauthStatus.provider === 'gemini'
           ? 'Gemini 接口已保存'
-          : 'Anthropic 兼容接口已保存',
+          : isDeepSeekBaseURL(customBaseURL)
+            ? 'DeepSeek 接口已保存'
+            : 'Anthropic 兼容接口已保存',
       notificationType: 'auth_success'
     }, terminal);
   }, [safeOauthStatus, persistCustomEndpoint, terminal]);
@@ -566,7 +568,7 @@ function OAuthStatusMessage(t0) {
     case "provider_select":
       {
         return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>选择模型 API 格式</Text><Text>请选择 IQcode 要使用的兼容接口类型。</Text><Box><Select options={[{
-          label: <Text>DeepSeek API · <Text dimColor={true}>使用 DeepSeek 的 OpenAI 兼容聊天接口</Text></Text>,
+          label: <Text>DeepSeek API · <Text dimColor={true}>使用 DeepSeek 接口</Text></Text>,
           value: "deepseek"
         }, {
           label: <Text>OpenAI 类接口 · <Text dimColor={true}>将 Anthropic Messages 转换为 Chat Completions</Text></Text>,
@@ -591,7 +593,7 @@ function OAuthStatusMessage(t0) {
         const label = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? '请输入 DeepSeek API 基础地址：' : isOpenAIProvider ? `请输入 ${currentOpenAICompatMode === 'responses' ? 'OpenAI Responses' : 'OpenAI Chat Completions'} 兼容基础地址：` : isGeminiProvider ? '请输入 Gemini API 基础地址：' : '请输入 Anthropic Messages 兼容基础地址：' : oauthStatus.step === 'apiKey' ? isDeepSeekPreset ? '请输入 DeepSeek API Key：' : isOpenAIProvider ? '请输入 OpenAI API Key：' : isGeminiProvider ? '请输入 Gemini API Key：' : '请输入 Anthropic API Key：' : isDeepSeekPreset ? '请输入 DeepSeek 模型名称：' : '请输入默认模型名称：';
         const value = oauthStatus.step === 'baseURL' ? customBaseURL : oauthStatus.step === 'apiKey' ? customApiKey : customModel;
         const onChange = oauthStatus.step === 'baseURL' ? setCustomBaseURL : oauthStatus.step === 'apiKey' ? setCustomApiKey : setCustomModel;
-        const placeholder = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'https://api.deepseek.com/v1' : isOpenAIProvider ? 'http(s)://你的 OpenAI 兼容接口地址/v1' : isGeminiProvider ? 'https://generativelanguage.googleapis.com/v1beta' : 'http(s)://你的 Anthropic 兼容接口地址' : oauthStatus.step === 'apiKey' ? 'sk-...' : isDeepSeekPreset ? 'deepseek-v4-pro[1m]' : isOpenAIProvider ? 'gpt-4o-mini' : isGeminiProvider ? 'gemini-2.5-pro' : 'claude-3-5-sonnet-latest';
+        const placeholder = oauthStatus.step === 'baseURL' ? isDeepSeekPreset ? 'https://api.deepseek.com/anthropic' : isOpenAIProvider ? 'http(s)://你的 OpenAI 兼容接口地址/v1' : isGeminiProvider ? 'https://generativelanguage.googleapis.com/v1beta' : 'http(s)://你的 Anthropic 兼容接口地址' : oauthStatus.step === 'apiKey' ? 'sk-...' : isDeepSeekPreset ? 'deepseek-v4-pro[1m]' : isOpenAIProvider ? 'gpt-4o-mini' : isGeminiProvider ? 'gemini-2.5-pro' : 'claude-3-5-sonnet-latest';
         const mask = oauthStatus.step === 'apiKey' ? '*' : undefined;
         return <Box flexDirection="column" gap={1} marginTop={1}><Text bold={true}>配置兼容接口</Text><Text>{`当前选择：${currentProviderLabel}`}</Text><Text>{label}</Text><Box flexDirection="row"><TextInput value={value} onChange={onChange} onSubmit={handleSubmitCustomConfig} onIsPastingChange={setIsCustomInputPasting} cursorOffset={cursorOffset} onChangeCursorOffset={setCursorOffset} columns={oauthStatus.step === 'baseURL' ? Math.max(20, textInputColumns - 12) : textInputColumns} focus={true} showCursor={true} placeholder={placeholder} mask={mask} dimColor={oauthStatus.step === 'model' && value.length === 0} />{oauthStatus.step === 'baseURL' ? <Text dimColor={true}>{pathSuffix}</Text> : null}</Box><Text dimColor={true}>按 Enter 保存当前项并继续。</Text></Box>;
       }

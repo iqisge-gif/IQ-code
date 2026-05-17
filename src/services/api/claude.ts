@@ -25,6 +25,9 @@ import {
   isFirstPartyAnthropicBaseUrl,
 } from 'src/utils/model/providers.js'
 import {
+  isDeepSeekCompatibleProvider,
+  supportsDeepSeekAnthropicFeatures,
+  usesDeepSeekOpenAICompat,
   readCustomApiProvidersStorage,
   readCustomApiStorage,
 } from 'src/utils/customApiStorage.js'
@@ -1023,6 +1026,180 @@ export function stripExcessMediaItems(
   }) as (UserMessage | AssistantMessage)[]
 }
 
+function stripUnsupportedDeepSeekBlocks(
+  messages: (UserMessage | AssistantMessage)[],
+  mode: 'openai' | 'anthropic',
+): (UserMessage | AssistantMessage)[] {
+  let changed = false
+  const result = messages.map(msg => {
+    if (msg.type !== 'user' && msg.type !== 'assistant') return msg
+    const content = msg.message.content
+    if (!Array.isArray(content)) return msg
+    const filtered = content.filter(block => {
+      if (
+        block.type === 'image' ||
+        block.type === 'document' ||
+        block.type === 'search_result' ||
+        block.type === 'redacted_thinking' ||
+        block.type === 'web_search_tool_result' ||
+        block.type === 'code_execution_tool_result' ||
+        block.type === 'container_upload'
+      ) {
+        return false
+      }
+      if (mode === 'anthropic') {
+        return (
+          block.type !== 'server_tool_use' &&
+          block.type !== 'mcp_tool_use' &&
+          block.type !== 'mcp_tool_result'
+        )
+      }
+      return true
+    })
+    if (filtered.length === content.length) return msg
+    changed = true
+    if (msg.type === 'assistant') {
+      const nextContent =
+        filtered.length > 0
+          ? filtered
+          : [
+              {
+                type: 'text' as const,
+                text: '[Unsupported DeepSeek-compatible content omitted]',
+                citations: [],
+              },
+            ]
+      return { ...msg, message: { ...msg.message, content: nextContent } }
+    }
+    return { ...msg, message: { ...msg.message, content: filtered } }
+  })
+  return changed ? result : messages
+}
+
+function stripDeepSeekPromptCachingFields(
+  messages: MessageParam[],
+): MessageParam[] {
+  let changed = false
+  const result = messages.map(msg => {
+    if (!Array.isArray(msg.content)) return msg
+    let contentChanged = false
+    const nextContent = msg.content.map(block => {
+      if (block && typeof block === 'object' && 'cache_control' in block) {
+        const { cache_control: _, ...rest } = block
+        contentChanged = true
+        return rest
+      }
+      if (
+        block &&
+        typeof block === 'object' &&
+        'content' in block &&
+        Array.isArray(block.content)
+      ) {
+        let nestedChanged = false
+        const nested = block.content.map(item => {
+          if (item && typeof item === 'object' && 'cache_control' in item) {
+            const { cache_control: _, ...rest } = item
+            nestedChanged = true
+            return rest
+          }
+          return item
+        })
+        if (nestedChanged) {
+          contentChanged = true
+          return { ...block, content: nested }
+        }
+      }
+      return block
+    })
+    if (!contentChanged) return msg
+    changed = true
+    return { ...msg, content: nextContent }
+  })
+  return changed ? result : messages
+}
+
+function stripDeepSeekUnsupportedToolSchemaFields(
+  tools: BetaToolUnion[],
+): BetaToolUnion[] {
+  let changed = false
+  const result = tools.flatMap(tool => {
+    if ('type' in tool && tool.type === 'advisor_20260301') {
+      changed = true
+      return []
+    }
+    if (!('name' in tool)) return [tool]
+    const cloned = tool as Record<string, unknown>
+    const next = { ...cloned }
+    if ('cache_control' in next) {
+      delete next.cache_control
+      changed = true
+    }
+    if ('defer_loading' in next) {
+      delete next.defer_loading
+      changed = true
+    }
+    if ('eager_input_streaming' in next) {
+      delete next.eager_input_streaming
+      changed = true
+    }
+    if ('strict' in next) {
+      delete next.strict
+      changed = true
+    }
+    return [next as BetaToolUnion]
+  })
+  return changed ? result : tools
+}
+
+function stripDeepSeekUnsupportedRequestFields(
+  params: ReturnType<typeof buildDeepSeekSafeParamsPlaceholder>,
+): ReturnType<typeof buildDeepSeekSafeParamsPlaceholder> {
+  const next = { ...params }
+  next.messages = stripDeepSeekPromptCachingFields(next.messages)
+  next.tools = stripDeepSeekUnsupportedToolSchemaFields(next.tools)
+  if (next.system) {
+    next.system = next.system.map(block => {
+      if ('cache_control' in block) {
+        const { cache_control: _, ...rest } = block
+        return rest
+      }
+      return block
+    })
+  }
+  delete next.metadata
+  delete next.betas
+  delete next.context_management
+  delete next.speed
+  if (next.thinking && 'budget_tokens' in next.thinking) {
+    next.thinking = { type: next.thinking.type }
+  }
+  if (next.output_config) {
+    const effort = next.output_config.effort
+    next.output_config = effort !== undefined ? { effort } : undefined
+  }
+  return next
+}
+
+type DeepSeekSafeParams = {
+  model: string
+  messages: MessageParam[]
+  system: TextBlockParam[]
+  tools: BetaToolUnion[]
+  tool_choice?: BetaToolChoiceTool | BetaToolChoiceAuto
+  betas?: string[]
+  metadata?: ReturnType<typeof getAPIMetadata>
+  max_tokens: number
+  thinking?: BetaMessageStreamParams['thinking']
+  temperature?: number
+  context_management?: Record<string, unknown>
+  output_config?: BetaOutputConfig
+  speed?: BetaMessageStreamParams['speed']
+}
+
+function buildDeepSeekSafeParamsPlaceholder(params: DeepSeekSafeParams): DeepSeekSafeParams {
+  return params
+}
+
 async function* queryModel(
   messages: Message[],
   systemPrompt: SystemPrompt,
@@ -1077,17 +1254,29 @@ async function* queryModel(
     options.querySource === 'sdk' ||
     options.querySource === 'hook_agent' ||
     options.querySource === 'verification_agent'
-  const betas = getMergedBetas(options.model, { isAgenticQuery })
+  const activeCustomProvider =
+    readCustomApiProvidersStorage().providers?.find(
+      provider => provider.id === getConfiguredProviderIdForModel(options.model),
+    ) ?? readCustomApiStorage()
+  const isDeepSeekCompat = isDeepSeekCompatibleProvider(activeCustomProvider)
+  const supportsDeepSeekAnthropic = supportsDeepSeekAnthropicFeatures(activeCustomProvider)
+  const usesDeepSeekOpenAI = usesDeepSeekOpenAICompat(activeCustomProvider)
+  if (isDeepSeekCompat && !supportsDeepSeekAnthropic && !usesDeepSeekOpenAI) {
+    throw new Error('DeepSeek compatibility mode requires either the Anthropic or OpenAI-compatible DeepSeek base URL')
+  }
+  const betas = isDeepSeekCompat
+    ? []
+    : getMergedBetas(options.model, { isAgenticQuery })
 
   // Always send the advisor beta header when advisor is enabled, so
   // non-agentic queries (compact, side_question, extract_memories, etc.)
   // can parse advisor server_tool_use blocks already in the conversation history.
-  if (isAdvisorEnabled()) {
+  if (!isDeepSeekCompat && isAdvisorEnabled()) {
     betas.push(ADVISOR_BETA_HEADER)
   }
 
   let advisorModel: string | undefined
-  if (isAgenticQuery && isAdvisorEnabled()) {
+  if (!isDeepSeekCompat && isAgenticQuery && isAdvisorEnabled()) {
     let advisorOption = options.advisorModel
 
     const advisorExperiment = getExperimentAdvisorModels()
@@ -1126,13 +1315,15 @@ async function* queryModel(
 
   // Check if tool search is enabled (checks mode, model support, and threshold for auto mode)
   // This is async because it may need to calculate MCP tool description sizes for TstAuto mode
-  let useToolSearch = await isToolSearchEnabled(
-    options.model,
-    tools,
-    options.getToolPermissionContext,
-    options.agents,
-    'query',
-  )
+  let useToolSearch =
+    !isDeepSeekCompat &&
+    (await isToolSearchEnabled(
+      options.model,
+      tools,
+      options.getToolPermissionContext,
+      options.agents,
+      'query',
+    ))
 
   // Precompute once — isDeferredTool does 2 GrowthBook lookups per call
   const deferredToolNames = new Set<string>()
@@ -1213,7 +1404,7 @@ async function* queryModel(
     )
   }
 
-  const useGlobalCacheFeature = shouldUseGlobalCacheScope()
+  const useGlobalCacheFeature = !isDeepSeekCompat && shouldUseGlobalCacheScope()
   const willDefer = (t: Tool) =>
     useToolSearch && (deferredToolNames.has(t.name) || shouldDeferLspTool(t))
   // MCP tools are per-user → dynamic tool section → can't globally cache.
@@ -1273,6 +1464,12 @@ async function* queryModel(
 
   queryCheckpoint('query_message_normalization_start')
   let messagesForAPI = normalizeMessagesForAPI(messages, filteredTools)
+  if (isDeepSeekCompat) {
+    messagesForAPI = stripUnsupportedDeepSeekBlocks(
+      messagesForAPI,
+      supportsDeepSeekAnthropic ? 'anthropic' : 'openai',
+    )
+  }
   queryCheckpoint('query_message_normalization_end')
 
   // Model-specific post-processing: strip tool-search-specific fields if the
@@ -1381,18 +1578,19 @@ async function* queryModel(
   logAPIPrefix(systemPrompt)
 
   const enablePromptCaching =
-    options.enablePromptCaching ?? getPromptCachingEnabled(options.model)
+    !isDeepSeekCompat &&
+    (options.enablePromptCaching ?? getPromptCachingEnabled(options.model))
   const system = buildSystemPromptBlocks(systemPrompt, enablePromptCaching, {
     skipGlobalCacheForSystemPrompt: needsToolBasedCacheMarker,
     querySource: options.querySource,
   })
-  const useBetas = betas.length > 0
+  const useBetas = !isDeepSeekCompat && betas.length > 0
 
   // Build minimal context for detailed tracing (when beta tracing is enabled)
   // Note: The actual new_context message extraction is done in sessionTracing.ts using
   // hash-based tracking per querySource (agent) from the messagesForAPI array
   const extraToolSchemas = [...(options.extraToolSchemas ?? [])]
-  if (advisorModel) {
+  if (!isDeepSeekCompat && advisorModel) {
     // Server tools must be in the tools array by API contract. Appended after
     // toolSchemas (which carries the cache_control marker) so toggling /advisor
     // only churns the small suffix, not the cached prefix.
@@ -1419,7 +1617,7 @@ async function* queryModel(
   // per-call so non-agentic queries keep their own stable header set.
 
   let afkHeaderLatched = getAfkModeHeaderLatched() === true
-  if (feature('TRANSCRIPT_CLASSIFIER')) {
+  if (!isDeepSeekCompat && feature('TRANSCRIPT_CLASSIFIER')) {
     if (
       !afkHeaderLatched &&
       isAgenticQuery &&
@@ -1550,6 +1748,42 @@ async function* queryModel(
   const paramsFromContext = (retryContext: RetryContext) => {
     const betasParams = [...betas]
 
+    if (isDeepSeekCompat) {
+      return stripDeepSeekUnsupportedRequestFields(
+        buildDeepSeekSafeParamsPlaceholder({
+          model: normalizeModelStringForAPI(options.model),
+          messages: addCacheBreakpoints(
+            messagesForAPI,
+            false,
+            options.querySource,
+            false,
+            null,
+            [],
+            true,
+          ),
+          system,
+          tools: stripDeepSeekUnsupportedToolSchemaFields(allTools),
+          tool_choice: options.toolChoice,
+          max_tokens:
+            retryContext?.maxTokensOverride ||
+            options.maxOutputTokensOverride ||
+            getMaxOutputTokensForModel(options.model),
+          thinking:
+            supportsDeepSeekAnthropic &&
+            thinkingConfig.type !== 'disabled' &&
+            !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_THINKING)
+              ? { type: 'enabled' }
+              : undefined,
+          ...(options.temperatureOverride !== undefined && {
+            temperature: options.temperatureOverride,
+          }),
+          ...(effort !== undefined && {
+            output_config: { effort },
+          }),
+        }),
+      )
+    }
+
     // Append 1M beta dynamically for the Sonnet 1M experiment.
     if (
       !betasParams.includes(CONTEXT_1M_BETA_HEADER) &&
@@ -1610,10 +1844,14 @@ async function* queryModel(
       !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_THINKING)
     let thinking: BetaMessageStreamParams['thinking'] | undefined = undefined
 
+    if (isDeepSeekCompat && supportsDeepSeekAnthropic) {
+      thinking = hasThinking ? { type: 'enabled' } : { type: 'disabled' }
+    }
+
     // IMPORTANT: Do not change the adaptive-vs-budget thinking selection below
     // without notifying the model launch DRI and research. This is a sensitive
     // setting that can greatly affect model quality and bashing.
-    if (hasThinking && modelSupportsThinking(options.model)) {
+    if (!isDeepSeekCompat && hasThinking && modelSupportsThinking(options.model)) {
       if (
         !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING) &&
         modelSupportsAdaptiveThinking(options.model)
@@ -1649,7 +1887,8 @@ async function* queryModel(
     })
 
     const enablePromptCaching =
-      options.enablePromptCaching ?? getPromptCachingEnabled(retryContext.model)
+      !isDeepSeekCompat &&
+      (options.enablePromptCaching ?? getPromptCachingEnabled(retryContext.model))
 
     // Fast mode: header is latched session-stable (cache-safe), but
     // `speed='fast'` stays dynamic so cooldown still suppresses the actual
@@ -1807,7 +2046,14 @@ async function* queryModel(
         queryCheckpoint('query_client_creation_end')
 
         const params = paramsFromContext(context)
-        captureAPIRequest(params, options.querySource) // Capture for bug reports
+        const requestTools =
+          isDeepSeekCompat && supportsDeepSeekAnthropic
+            ? stripDeepSeekUnsupportedToolSchemaFields(params.tools)
+            : params.tools
+        captureAPIRequest(
+          { ...params, tools: requestTools },
+          options.querySource,
+        ) // Capture for bug reports
 
         maxOutputTokens = params.max_tokens
 
@@ -1841,9 +2087,49 @@ async function* queryModel(
         const compatProvider = customApiConfig.provider ?? 'anthropic'
         const openAICompatMode = customApiConfig.openaiCompatMode ?? 'chat_completions'
 
-        // OpenAI-compatible APIs (DeepSeek, etc.) have max_tokens limits (typically 8192).
+        // OpenAI-compatible APIs have max_tokens limits (typically 8192).
         // Cap max_tokens to prevent "max_tokens value out of range" errors.
         const maxTokensForCompat = Math.min(params.max_tokens ?? CAPPED_DEFAULT_MAX_TOKENS, 8192)
+
+        if (usesDeepSeekOpenAI && compatProvider === 'anthropic') {
+          const compatConfig = {
+            apiKey: customApiConfig.apiKey || process.env.DOGE_API_KEY || '',
+            baseURL: customApiConfig.baseURL || process.env.ANTHROPIC_BASE_URL || '',
+            headers: clientRequestId
+              ? { [CLIENT_REQUEST_ID_HEADER]: clientRequestId }
+              : undefined,
+            fetch: globalThis.fetch,
+          }
+
+          const openAIRequest = convertAnthropicRequestToOpenAI({
+            model: params.model,
+            system: params.system,
+            messages: params.messages,
+            tools: params.tools,
+            tool_choice: params.tool_choice,
+            temperature: params.temperature,
+            max_tokens: maxTokensForCompat,
+            thinking: params.thinking,
+            effort,
+            compatProvider: 'deepseek',
+            tokenSavingMaxIntelligence,
+          })
+          if (!openAIRequest.messages || openAIRequest.messages.length === 0) {
+            throw new Error(
+              `[claude.ts] deepseek compat request has no messages; source=${options.querySource} model=${params.model}`,
+            )
+          }
+          const reader = await createOpenAICompatStream(
+            compatConfig,
+            openAIRequest,
+            signal,
+          )
+          queryCheckpoint('query_response_headers_received')
+          return createAnthropicStreamFromOpenAI({
+            reader,
+            model: params.model,
+          }) as unknown as Stream<BetaRawMessageStreamEvent>
+        }
 
         if (compatProvider === 'gemini') {
           const geminiRequest = convertAnthropicRequestToGemini({
@@ -1881,7 +2167,7 @@ async function* queryModel(
             model: params.model,
           }) as unknown as Stream<BetaRawMessageStreamEvent>
         }
-        if (compatProvider === 'openai' || compatProvider === 'deepseek') {
+        if (compatProvider === 'openai') {
           const compatConfig = {
             apiKey: customApiConfig.apiKey || process.env.DOGE_API_KEY || '',
             baseURL: customApiConfig.baseURL || process.env.ANTHROPIC_BASE_URL || '',
@@ -1930,7 +2216,7 @@ async function* queryModel(
             max_tokens: maxTokensForCompat,
             thinking: params.thinking,
             effort,
-            compatProvider,
+            compatProvider: isDeepSeekCompat ? 'deepseek' : 'openai',
             tokenSavingMaxIntelligence,
           })
           if (!openAIRequest.messages || openAIRequest.messages.length === 0) {

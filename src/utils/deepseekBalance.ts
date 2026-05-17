@@ -1,5 +1,9 @@
 import axios from 'axios'
-import { readCurrentCustomApiProvider } from './customApiStorage.js'
+import {
+  isDeepSeekCompatibleProvider,
+  isDeepSeekAnthropicBaseURL,
+  readCurrentCustomApiProvider,
+} from './customApiStorage.js'
 
 export type DeepSeekBalanceInfo = {
   currency?: string
@@ -36,13 +40,16 @@ export async function fetchDeepSeekBalance(force = false): Promise<DeepSeekBalan
   }
 
   const provider = readCurrentCustomApiProvider()
-  if (provider?.provider !== 'deepseek' || !provider.baseURL || !provider.apiKey) {
+  if (!isDeepSeekCompatibleProvider(provider) || !provider?.baseURL || !provider.apiKey) {
     cachedBalance = null
     lastFetchedAt = now
     return null
   }
 
-  const url = `${provider.baseURL.replace(/\/$/, '')}/user/balance`
+  const baseURL = provider.baseURL.replace(/\/$/, '')
+  const url = isDeepSeekAnthropicBaseURL(baseURL)
+    ? `${baseURL.replace(/\/anthropic(?:\/)?$/i, '')}/user/balance`
+    : `${baseURL}/user/balance`
   inFlight = axios.get<DeepSeekBalanceResponse>(url, {
     headers: {
       Authorization: `Bearer ${provider.apiKey}`,

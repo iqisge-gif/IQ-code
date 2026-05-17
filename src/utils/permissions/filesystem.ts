@@ -37,6 +37,7 @@ import {
   getSettingsRootPathForSource,
 } from '../settings/settings.js'
 import { containsVulnerableUncPath } from '../shell/readOnlyCommandValidation.js'
+import { getTermuxTmpDir } from '../termux.js'
 import { getToolResultsDir } from '../toolResultStorage.js'
 import { windowsPathToPosixPath } from '../windowsPaths.js'
 import type {
@@ -331,6 +332,7 @@ export function getClaudeTempDirName(): string {
 export const getClaudeTempDir = memoize(function getClaudeTempDir(): string {
   const baseTmpDir =
     process.env.CLAUDE_CODE_TMPDIR ||
+    getTermuxTmpDir() ||
     (getPlatform() === 'windows' ? tmpdir() : '/tmp')
 
   // Resolve symlinks in the base temp directory (e.g., /tmp -> /private/tmp on macOS)
