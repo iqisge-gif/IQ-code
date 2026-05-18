@@ -1,50 +1,69 @@
-# IQ-code
-你好这是一个code基于claudecode他可不是一般的code不是简单的套壳深度接入deepseek的code
+# IQ-Code
 
-#install
+IQ-Code 是一个基于 Claude Code 构建的项目，它并非简单的套壳，而是深度接入了 DeepSeek 的 Code 能力。
 
-#Linux and mac
+---
 
+## 安装指南
+
+Linux / macOS
+
+```bash
+# 安装 Bun
 curl -fsSL https://bun.com/install | bash
 
-#Windows
+# 克隆仓库
+git clone https://github.com/iqisge-gif/IQ-code.git
 
+# 安装依赖
+bun install
+```
+
+Windows
+
+```powershell
+# 安装 Bun
 powershell -c "irm bun.sh/install.ps1|iex"
 
-
+# 克隆仓库
 git clone https://github.com/iqisge-gif/IQ-code.git
 
+# 安装依赖
 bun install
+```
 
-#run
+---
 
+运行
 
+```bash
 bun dev run
+```
 
+---
 
+## Termux 专区
 
+项目开发者使用 Termux 进行开发，于是项目针对 Termux 进行了深度优化，Android 用户可直接使用 Termux 安装本项目。
 
-这里是termux区
-先安装termux bun 
+1. 安装 Termux 版 Bun
 
+```bash
 curl -fsSL "https://raw.githubusercontent.com/Happ1ness-dev/bun-termux/main/helper_scripts/bun-termux-manager" | bash -s install
+```
 
+> ⚠️ 安装完成后重启终端。
 
+2. 安装项目
 
-然后重启终端
-
-
-#install
-
+```bash
 git clone https://github.com/iqisge-gif/IQ-code.git
-
 cd IQ-code
-
 bun install
+```
 
-#run
+3. 运行
 
+```bash
 bun run dev
-
-
-
+```
