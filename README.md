@@ -44,6 +44,8 @@ bun dev run
 
 ## Termux 专区
 
+项目开发者使用 Termux 进行开发，于是项目针对 Termux 进行了深度优化，Android 用户可直接使用 Termux 安装本项目。
+
 1. 安装 Termux 版 Bun
 
 ```bash
